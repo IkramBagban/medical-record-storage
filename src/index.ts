@@ -1,8 +1,10 @@
-import express from "express";
+import express, { Response } from "express";
 import { errorHandler } from "./middlewares/error.middleware";
 import v1Routes from "./routes/index";
 import dotenv from "dotenv";
 import { rateLimit } from "express-rate-limit";
+import { authMiddleware } from "./middlewares/auth.middleware";
+import { ExtendedRequest } from "./types/common";
 
 dotenv.config();
 
@@ -24,8 +26,13 @@ const limiter = rateLimit({
 app.use(limiter);
 app.use(express.json());
 app.use("/api", v1Routes);
+app.get("/api/me", authMiddleware, (req: ExtendedRequest, res: Response) => {
+  res.json({
+    message: "Authenticated user data",
+    user: req.user,
+  });
+});
 app.use(errorHandler);
-
 app.get("/", (req, res) => {
   res.send("Working!");
 });
