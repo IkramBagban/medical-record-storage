@@ -22,7 +22,6 @@ const limiter = rateLimit({
   },
 });
 
-
 app.use(limiter);
 app.use(express.json());
 app.use("/api", v1Routes);
@@ -37,7 +36,7 @@ app.get("/", (req, res) => {
   res.send("Working!");
 });
 
-app.listen(PORT, () => {
+export const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
