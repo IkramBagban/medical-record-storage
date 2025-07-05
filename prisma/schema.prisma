@@ -33,6 +33,12 @@ model User {
   role        UserRole
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  records         Record[] @relation("RecordOwner")
+  uploadedRecords Record[] @relation("RecordUploader")
+
+  sentCaregiverRequests     CaregiverRequest[] @relation("CaregiverRequester")
+  receivedCaregiverRequests CaregiverRequest[] @relation("Patient")
 }
 
 model OtpVerification {
@@ -43,6 +49,67 @@ model OtpVerification {
   verified  Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  @@index([email])
   @@unique([email, otp])
+  @@index([email])
+}
+
+enum Ownership {
+  SELF
+  DEPENDENT
+}
+
+enum RecordType {
+  PRESCRIPTION
+  LAB_REPORT
+  SCAN
+  CONSULTATION
+  VACCINATION
+  MEDICAL_CERTIFICATE
+  OTHER
+}
+
+model Record {
+  id         String     @id @default(cuid())
+  title      String
+  type       RecordType
+  language   String     @default("en")
+  tags       String[]
+  fileUrl    String     @unique()
+  fileName   String
+  fileSize   Int
+  mimeType   String
+  recordDate DateTime
+  isDeleted  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  ownerId String
+  owner   User   @relation("RecordOwner", fields: [ownerId], references: [id])
+
+  uploaderId String
+  uploader   User   @relation("RecordUploader", fields: [uploaderId], references: [id])
+
+  @@index([ownerId])
+  @@index([uploaderId])
+}
+
+enum CaregiverRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CaregiverRequest {
+  id          String                 @id @default(cuid())
+  caregiverId String
+  patientId   String
+  status      CaregiverRequestStatus @default(PENDING)
+  message     String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  caregiver User @relation("CaregiverRequester", fields: [caregiverId], references: [id])
+  patient   User @relation("Patient", fields: [patientId], references: [id])
+
+  @@unique([caregiverId, patientId])
 }
