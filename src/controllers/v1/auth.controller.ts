@@ -13,10 +13,9 @@ export const sendSignupOtp = async (
   next: NextFunction
 ) => {
   try {
-    console.log("req.body", req.body);
     const schema = z.object({ email: z.string().email() });
     const result = schema.safeParse(req.body);
-    console.log("result", JSON.stringify(result));
+    
     if (!result.success) {
       throwError(JSON.stringify(result.error.flatten()), 400);
       return;
@@ -47,7 +46,7 @@ export const sendSignupOtp = async (
     });
 
     if (existingOtp) {
-      emailService.sendOtpEmail(email, existingOtp.otp);
+      await emailService.sendOtpEmail(email, existingOtp.otp);
       res.status(200).json({
         message: "OTP sent to email again. Please check your inbox.",
         success: true,
@@ -56,7 +55,16 @@ export const sendSignupOtp = async (
     }
 
     const { otp, expirationTime } = otpService.generateOtp();
-    await emailService.sendOtpEmail(email, otp);
+    
+    await prisma.otpVerification.deleteMany({
+      where: {
+        email,
+        OR: [
+          { verified: true },
+          { expiresAt: { lt: new Date() } }
+        ]
+      }
+    });
 
     await prisma.otpVerification.create({
       data: {
@@ -67,7 +75,12 @@ export const sendSignupOtp = async (
       },
     });
 
-    res.status(200).json({ message: "OTP sent to email", success: true });
+    await emailService.sendOtpEmail(email, otp);
+
+    res.status(200).json({ 
+      message: "OTP sent to email", 
+      success: true 
+    });
   } catch (err) {
     next(err);
   }
@@ -86,6 +99,13 @@ export const verifySignup = async (
     }
 
     const { name, email, accountType, role, otp } = result.data;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      throwError("Email already in use", 409);
+      return;
+    }
+
     const otpVerification = await prisma.otpVerification.findFirst({
       where: {
         email,
@@ -99,7 +119,6 @@ export const verifySignup = async (
         otp: true,
       },
     });
-    console.log("otpVerification", otpVerification);
 
     if (!otpVerification) {
       throwError("Invalid email or expired OTP", 400);
@@ -111,34 +130,32 @@ export const verifySignup = async (
       return;
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      throwError("Email already in use", 409);
-      return;
-    }
 
     const user = await prisma.$transaction(async (tx) => {
       await tx.otpVerification.update({
         where: { id: otpVerification.id },
         data: { verified: true },
       });
-      const user = await tx.user.create({
+
+      const newUser = await tx.user.create({
         data: { name, email, accountType, role },
         select: {
           id: true,
           email: true,
+          role: true,
         },
       });
 
-      return user;
+      return newUser;
     });
 
-    console.log("user", user);
     const token = generateToken(user);
 
-    res
-      .status(201)
-      .json({ token, message: "User created successfully", success: true });
+    res.status(201).json({ 
+      token, 
+      message: "User created successfully", 
+      success: true 
+    });
   } catch (err) {
     next(err);
   }
@@ -168,7 +185,15 @@ export const sendLoginOtp = async (
 
     const { otp, expirationTime } = otpService.generateOtp();
 
-    await emailService.sendOtpEmail(email, otp);
+    await prisma.otpVerification.deleteMany({
+      where: {
+        email,
+        OR: [
+          { verified: true },
+          { expiresAt: { lt: new Date() } }
+        ]
+      }
+    });
 
     await prisma.otpVerification.create({
       data: {
@@ -179,7 +204,12 @@ export const sendLoginOtp = async (
       },
     });
 
-    res.status(200).json({ message: "OTP sent to email", success: true });
+    await emailService.sendOtpEmail(email, otp);
+
+    res.status(200).json({ 
+      message: "OTP sent to email", 
+      success: true 
+    });
   } catch (err) {
     next(err);
   }
@@ -199,7 +229,7 @@ export const verifyLogin = async (
 
     const { email, otp } = result.data;
 
-    const record = await prisma.otpVerification.findFirst({
+    const otpRecord = await prisma.otpVerification.findFirst({
       where: {
         email,
         verified: false,
@@ -207,14 +237,18 @@ export const verifyLogin = async (
           gt: new Date(),
         },
       },
+      select: {
+        id: true,
+        otp: true,
+      },
     });
 
-    if (!record) {
+    if (!otpRecord) {
       throwError("OTP expired or not found", 410); // 410 = Gone
       return;
     }
 
-    const isValid = await otpService.verifyOtp(otp, record.otp);
+    const isValid = await otpService.verifyOtp(otp, otpRecord.otp);
     if (!isValid) {
       throwError("Invalid OTP", 400);
       return;
@@ -237,12 +271,8 @@ export const verifyLogin = async (
     }
 
     await prisma.otpVerification.update({
-      where: {
-        id: record.id,
-      },
-      data: {
-        verified: true,
-      },
+      where: { id: otpRecord.id },
+      data: { verified: true },
     });
 
     const token = generateToken({
