@@ -8,8 +8,12 @@ describe("Records API", () => {
   let caregiverToken: string;
   let patientId: string;
   let caregiverId: string;
+  let recordId: string;
 
   beforeAll(async () => {
+    await prisma.record.deleteMany();
+    await prisma.caregiverRequest.deleteMany();
+    await prisma.user.deleteMany();
     const [patient, caregiver] = await prisma.$transaction([
       prisma.user.create({
         data: {
@@ -56,7 +60,7 @@ describe("Records API", () => {
         status: "APPROVED",
       },
     });
-  });
+  }, 30000); 
 
   afterAll(async () => {
     await prisma.record.deleteMany();
@@ -160,5 +164,116 @@ describe("Records API", () => {
     });
   });
 
+  describe("POST /records/upload", () => {
+    it("should create record after successful upload", async () => {
+      const uploadData = {
+        title: "X-Ray Report",
+        type: "SCAN",
+        language: "en",
+        tags: ["chest", "x-ray"],
+        recordDate: "2024-07-06T10:30:00.000Z",
+        fileName: "chest_xray.jpg",
+        fileSize: 1024576,
+        mimeType: "image/jpeg",
+        fileKey: "medical-records/test/1720261800000_abc123.jpg",
+      };
 
+      const response = await request(app)
+        .post("/api/v1/records/upload")
+        .set("Authorization", `Bearer ${patientToken}`)
+        .send(uploadData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.record).toBeDefined();
+      expect(response.body.record.title).toBe("X-Ray Report");
+      expect(response.body.record.type).toBe("SCAN");
+      expect(response.body.record.ownerId).toBe(patientId);
+      expect(response.body.record.uploaderId).toBe(patientId);
+
+      recordId = response.body.record.id;
+    });
+
+    it("should allow caregiver to upload for patient", async () => {
+      const uploadData = {
+        title: "Prescription",
+        type: "PRESCRIPTION",
+        language: "en",
+        tags: ["medication", "diabetes"],
+        recordDate: "2024-07-06T10:30:00.000Z",
+        fileName: "prescription.pdf",
+        fileSize: 512000,
+        mimeType: "application/pdf",
+        fileKey: "medical-records/test/1720261800001_def456.pdf",
+        ownerId: patientId,
+      };
+
+      const response = await request(app)
+        .post("/api/v1/records/upload")
+        .set("Authorization", `Bearer ${caregiverToken}`)
+        .send(uploadData);
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.record.ownerId).toBe(patientId);
+      expect(response.body.record.uploaderId).toBe(caregiverId);
+    });
+
+    it("should reject caregiver without access", async () => {
+      const anotherPatient = await prisma.user.create({
+        data: {
+          email: "another@test.com",
+          name: "Another Patient",
+          accountType: "FREEMIUM",
+          role: "PATIENT",
+        },
+      });
+
+      const uploadData = {
+        title: "Unauthorized Upload",
+        type: "OTHER",
+        language: "en",
+        tags: [],
+        recordDate: "2024-07-06T10:30:00.000Z",
+        fileName: "test.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+        fileKey: "medical-records/test/unauthorized.pdf",
+        ownerId: anotherPatient.id,
+      };
+
+      const response = await request(app)
+        .post("/api/v1/records/upload")
+        .set("Authorization", `Bearer ${caregiverToken}`)
+        .send(uploadData);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain(
+        "You don't have access to upload records for this patient"
+      );
+
+      await prisma.user.delete({ where: { id: anotherPatient.id } });
+    });
+
+    it("should require fileKey", async () => {
+      const uploadData = {
+        title: "Missing File Key",
+        type: "OTHER",
+        language: "en",
+        tags: [],
+        recordDate: "2024-07-06T10:30:00.000Z",
+        fileName: "test.pdf",
+        fileSize: 1024,
+        mimeType: "application/pdf",
+      };
+
+      const response = await request(app)
+        .post("/api/v1/records/upload")
+        .set("Authorization", `Bearer ${patientToken}`)
+        .send(uploadData);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain("File key is required");
+    });
+  });
 });
