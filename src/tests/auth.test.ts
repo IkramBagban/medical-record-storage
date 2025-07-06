@@ -1,24 +1,21 @@
 import request from "supertest";
 import app, { server } from "..";
 import { prisma } from "../utils/db";
-import { cleanupTestData, testEmail } from "./common";
+import { cleanupAuthTables, testEmail } from "./helpers/common";
 import { createOtpVerification } from "./helpers/auth";
-import { setupAuthMocks } from "./mocks/authMocks";
-
-setupAuthMocks();
 
 beforeAll(async () => {
-  await cleanupTestData();
+  await cleanupAuthTables();
 });
 
 afterAll(async () => {
-  await cleanupTestData();
+  await cleanupAuthTables();
   await prisma.$disconnect();
   server.close();
 });
 
 beforeEach(async () => {
-  await cleanupTestData();
+  await cleanupAuthTables();
 });
 
 describe("Signup OTP Flow", () => {
@@ -27,6 +24,10 @@ describe("Signup OTP Flow", () => {
       const res = await request(app)
         .post("/api/v1/auth/signup/send-otp")
         .send({ email: testEmail });
+      console.log(
+        "signup/send-otp Response body: ================================ ",
+        res.body
+      );
 
       expect(res.statusCode).toBe(200);
       expect(res.body).toHaveProperty("success", true);
@@ -39,6 +40,7 @@ describe("Signup OTP Flow", () => {
           expiresAt: { gt: new Date() },
         },
       });
+      console.log('otpRecord: ', otpRecord);
       expect(otpRecord).toBeTruthy();
     });
 
@@ -85,7 +87,6 @@ describe("Signup OTP Flow", () => {
     });
 
     it("should return 409 if user already exists", async () => {
-      // Create a user first
       await prisma.user.create({
         data: {
           name: "Test User",
@@ -266,6 +267,10 @@ describe("Login OTP Flow", () => {
         .post("/api/v1/auth/login/send-otp")
         .send({ email: testEmail });
 
+      console.log(
+        "login/login send-otp Response body: ================================ ",
+        res.body
+      );
       expect(res.statusCode).toBe(200);
       expect(res.body).toHaveProperty("success", true);
       expect(res.body).toHaveProperty("message", "OTP sent to email");

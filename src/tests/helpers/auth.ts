@@ -1,5 +1,6 @@
+import { AccountType, UserRole } from "../../generated/prisma";
 import { prisma } from "../../utils/db";
-import { testEmail } from "../common";
+import { testEmail } from "./common";
 
 interface CreateOtpVerificationParams {
   email?: string;
@@ -20,6 +21,22 @@ export const createOtpVerification = async ({
       otp,
       expiresAt,
       verified,
+    },
+  });
+};
+
+export const createUser = async ({
+  email = testEmail,
+  name = "Test User",
+  accountType = AccountType.FREEMIUM,
+  role = UserRole.PATIENT,
+}) => {
+  return await prisma.user.create({
+    data: {
+      email,
+      name,
+      accountType,
+      role,
     },
   });
 };
