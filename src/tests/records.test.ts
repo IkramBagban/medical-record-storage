@@ -276,4 +276,203 @@ describe("Records API", () => {
       expect(response.body.error).toContain("File key is required");
     });
   });
+
+  describe("GET /records", () => {
+    it("should get user's records", async () => {
+      const response = await request(app)
+        .get("/api/v1/records")
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.records).toBeDefined();
+      expect(Array.isArray(response.body.records)).toBe(true);
+      expect(response.body.pagination).toBeDefined();
+    });
+
+    it("should filter records by type", async () => {
+      const response = await request(app)
+        .get("/api/v1/records?type=SCAN")
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.records.every((r: any) => r.type === "SCAN")).toBe(
+        true
+      );
+    });
+
+    it("should filter records by date range", async () => {
+      const response = await request(app)
+        .get(
+          "/api/v1/records?dateFrom=2024-07-01T00:00:00.000Z&dateTo=2024-07-31T23:59:59.999Z"
+        )
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.records).toBeDefined();
+    });
+
+    it("should filter records by tags", async () => {
+      const response = await request(app)
+        .get("/api/v1/records?tags=chest,x-ray")
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.records).toBeDefined();
+    });
+
+    it("should allow caregiver to get patient records", async () => {
+      const response = await request(app)
+        .get(`/api/v1/records?userId=${patientId}`)
+        .set("Authorization", `Bearer ${caregiverToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.records).toBeDefined();
+    });
+
+    it("should reject caregiver without access", async () => {
+      const anotherPatient = await prisma.user.create({
+        data: {
+          email: "another2@test.com",
+          name: "Another Patient 2",
+          accountType: "FREEMIUM",
+          role: "PATIENT",
+        },
+      });
+
+      const response = await request(app)
+        .get(`/api/v1/records?userId=${anotherPatient.id}`)
+        .set("Authorization", `Bearer ${caregiverToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain("don't have access");
+
+      // Cleanup
+      await prisma.user.delete({ where: { id: anotherPatient.id } });
+    });
+
+    it("should support pagination", async () => {
+      const response = await request(app)
+        .get("/api/v1/records?page=1&limit=5")
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.pagination.page).toBe(1);
+      expect(response.body.pagination.limit).toBe(5);
+      expect(response.body.pagination.totalCount).toBeDefined();
+      expect(response.body.pagination.totalPages).toBeDefined();
+    });
+  });
+
+  describe("GET /records/:id", () => {
+    it("should get specific record with download URL", async () => {
+      const response = await request(app)
+        .get(`/api/v1/records/${recordId}`)
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.record).toBeDefined();
+      expect(response.body.record.id).toBe(recordId);
+      expect(response.body.record.downloadUrl).toBeDefined();
+    });
+
+    it("should allow caregiver to get patient's record", async () => {
+      const response = await request(app)
+        .get(`/api/v1/records/${recordId}`)
+        .set("Authorization", `Bearer ${caregiverToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.record.id).toBe(recordId);
+    });
+
+    it("should return 404 for non-existent record", async () => {
+      const response = await request(app)
+        .get("/api/v1/records/non-existent-id")
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain("Record not found");
+    });
+
+    it("should reject unauthorized access", async () => {
+      const unauthorizedUser = await prisma.user.create({
+        data: {
+          email: "unauthorized@test.com",
+          name: "Unauthorized User",
+          accountType: "FREEMIUM",
+          role: "PATIENT",
+        },
+      });
+
+      const unauthorizedToken = generateToken({
+        id: unauthorizedUser.id,
+        email: unauthorizedUser.email,
+        role: unauthorizedUser.role,
+      });
+
+      const response = await request(app)
+        .get(`/api/v1/records/${recordId}`)
+        .set("Authorization", `Bearer ${unauthorizedToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toContain("don't have access");
+
+      await prisma.user.delete({ where: { id: unauthorizedUser.id } });
+    });
+  });
+
+  describe("DELETE /records/:id", () => {
+    it("should soft delete record", async () => {
+      const response = await request(app)
+        .delete(`/api/v1/records/${recordId}`)
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain("deleted successfully");
+
+      // verif if record is soft deleted
+      const deletedRecord = await prisma.record.findUnique({
+        where: { id: recordId },
+      });
+      expect(deletedRecord?.isDeleted).toBe(true);
+    });
+
+    it("should not allow caregiver to delete patient's record", async () => {
+      const record = await prisma.record.create({
+        data: {
+          title: "Test Record for Deletion",
+          type: "OTHER",
+          language: "en",
+          tags: [],
+          fileUrl: "test-key",
+          fileName: "test.pdf",
+          fileSize: 1024,
+          mimeType: "application/pdf",
+          recordDate: new Date(),
+          ownerId: patientId,
+          uploaderId: patientId,
+        },
+      });
+
+      const response = await request(app)
+        .delete(`/api/v1/records/${record.id}`)
+        .set("Authorization", `Bearer ${caregiverToken}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain("Record not found");
+    });
+
+    it("should return 404 for already deleted record", async () => {
+      const response = await request(app)
+        .delete(`/api/v1/records/${recordId}`)
+        .set("Authorization", `Bearer ${patientToken}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain("Record not found");
+    });
+  });
 });
