@@ -26,7 +26,7 @@ export const enforcePermission = (requiredPermissions: Actions[]) => {
   };
 };
 
-export const enforceRole = (requiredRoles: UserRole[]) => {
+export const enforceRole = (requiredRoles: UserRole[], error?: string) => {
   return async (req: ExtendedRequest, res: Response, next: NextFunction) => {
     try {
       const role = req.user?.role;
@@ -35,7 +35,7 @@ export const enforceRole = (requiredRoles: UserRole[]) => {
       console.log(`Required role: ${requiredRoles}`);
 
       if (!rbac.hasRole(role as UserRole, requiredRoles)) {
-        throwError("Forbidden: You do not have the required role.", 403);
+        throwError(error || "Forbidden: You do not have the required role.", 403);
         return;
       }
 
