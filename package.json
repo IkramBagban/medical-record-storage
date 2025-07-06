@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "test": "jest",
+    "test": "jest --runInBand",
+    "test:records": "jest src/tests/records.test.ts",
+    "test:auth": "jest src/tests/auth.test.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate"
   },
