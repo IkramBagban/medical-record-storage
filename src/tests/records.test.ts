@@ -2,6 +2,7 @@ import request from "supertest";
 import app, { server } from "..";
 import { prisma } from "../utils/db";
 import { generateToken } from "../utils/jwt";
+import { multilingualTestData } from "./helpers/common";
 
 describe("Records API", () => {
   let patientToken: string;
@@ -60,7 +61,7 @@ describe("Records API", () => {
         status: "APPROVED",
       },
     });
-  }, 30000); 
+  }, 30000);
 
   afterAll(async () => {
     await prisma.record.deleteMany();
@@ -68,6 +69,406 @@ describe("Records API", () => {
     await prisma.user.deleteMany();
     await prisma.$disconnect();
     server.close();
+  });
+
+  describe("Multilingual Records API", () => {
+    let multilingualRecordIds: string[] = [];
+
+    beforeAll(async () => {
+      await prisma.record.deleteMany({
+        where: {
+          OR: multilingualTestData.map((data) => ({
+            title: data.title,
+          })),
+        },
+      });
+    });
+
+    afterAll(async () => {
+      if (multilingualRecordIds.length > 0) {
+        await prisma.record.deleteMany({
+          where: {
+            id: {
+              in: multilingualRecordIds,
+            },
+          },
+        });
+      }
+    });
+
+    describe("POST /records/upload-url - Multilingual Support", () => {
+      it("should generate upload URL for Spanish metadata", async () => {
+        const spanishData = multilingualTestData[0];
+        const uploadData = {
+          title: spanishData.title,
+          type: spanishData.type,
+          language: spanishData.language,
+          tags: spanishData.tags,
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: spanishData.fileName,
+          fileSize: 2048576,
+          mimeType: "application/pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload-url")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.uploadUrl).toBeDefined();
+        expect(response.body.fileKey).toBeDefined();
+      });
+
+      it("should generate upload URL for Arabic metadata (RTL)", async () => {
+        const arabicData = multilingualTestData[9];
+        const uploadData = {
+          title: arabicData.title,
+          type: arabicData.type,
+          language: arabicData.language,
+          tags: arabicData.tags,
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: arabicData.fileName,
+          fileSize: 1024576,
+          mimeType: "application/pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload-url")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.uploadUrl).toBeDefined();
+        expect(response.body.fileKey).toBeDefined();
+      });
+
+      it("should generate upload URL for Japanese metadata", async () => {
+        const japaneseData = multilingualTestData[6];
+        const uploadData = {
+          title: japaneseData.title,
+          type: japaneseData.type,
+          language: japaneseData.language,
+          tags: japaneseData.tags,
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: japaneseData.fileName,
+          fileSize: 1024576,
+          mimeType: "application/pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload-url")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.uploadUrl).toBeDefined();
+        expect(response.body.fileKey).toBeDefined();
+      });
+
+      it("should handle special characters in filenames", async () => {
+        const germanData = multilingualTestData[2];
+        const uploadData = {
+          title: germanData.title,
+          type: germanData.type,
+          language: germanData.language,
+          tags: germanData.tags,
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: germanData.fileName, // Contains 'ö' character
+          fileSize: 1024576,
+          mimeType: "image/jpeg",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload-url")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.uploadUrl).toBeDefined();
+        expect(response.body.fileKey).toBeDefined();
+      });
+    });
+
+    describe("POST /records/upload - Multilingual Records Creation", () => {
+      it("should create records with multilingual metadata", async () => {
+        for (const testData of multilingualTestData) {
+          const uploadData = {
+            title: testData.title,
+            type: testData.type,
+            language: testData.language,
+            tags: testData.tags,
+            recordDate: "2024-07-06T10:30:00.000Z",
+            fileName: testData.fileName,
+            fileSize: 1024576,
+            mimeType:
+              testData.type === "SCAN" ? "image/jpeg" : "application/pdf",
+            fileKey: `medical-records/test/multilingual_${testData.language}_${Date.now()}.${testData.type === "SCAN" ? "jpg" : "pdf"}`,
+            description: testData.description,
+          };
+
+          const response = await request(app)
+            .post("/api/v1/records/upload")
+            .set("Authorization", `Bearer ${patientToken}`)
+            .send(uploadData);
+
+          console.log("should create records res.body:", response.body);
+
+          expect(response.status).toBe(201);
+          expect(response.body.success).toBe(true);
+          expect(response.body.record).toBeDefined();
+          expect(response.body.record.title).toBe(testData.title);
+          expect(response.body.record.language).toBe(testData.language);
+          expect(response.body.record.tags).toEqual(testData.tags);
+          expect(response.body.record.fileName).toBe(testData.fileName);
+
+          multilingualRecordIds.push(response.body.record.id);
+        }
+      });
+
+      it("should handle mixed language tags", async () => {
+        const mixedLanguageData = {
+          title: "Mixed Language Medical Report",
+          type: "OTHER",
+          language: "en",
+          tags: ["blood", "sangre", "血液", "دم", "кровь"],
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: "mixed_language_report.pdf",
+          fileSize: 1024576,
+          mimeType: "application/pdf",
+          fileKey: `medical-records/test/mixed_${Date.now()}.pdf`,
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(mixedLanguageData);
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record.tags).toEqual(mixedLanguageData.tags);
+
+        multilingualRecordIds.push(response.body.record.id);
+      });
+    });
+
+    describe("GET /records - Multilingual Filtering", () => {
+      it("should search records by multilingual tags", async () => {
+        const response = await request(app)
+          .get("/api/v1/records?tags=血液")
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.records).toBeDefined();
+
+        const foundRecord = response.body.records.find((r: any) =>
+          r.tags.includes("血液")
+        );
+        expect(foundRecord).toBeDefined();
+      });
+
+      it("should search records by Arabic tags", async () => {
+        const response = await request(app)
+          .get("/api/v1/records?tags=دم")
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.records).toBeDefined();
+
+        const foundRecord = response.body.records.find((r: any) =>
+          r.tags.includes("دم")
+        );
+        expect(foundRecord).toBeDefined();
+      });
+
+      it("should search records by title in different languages", async () => {
+        const response = await request(app)
+          .get("/api/v1/records?search=血液検査")
+          .set("Authorization", `Bearer ${patientToken}`);
+        console.log(
+          "Search records by title response:",
+          JSON.stringify(response.body, null, 2)
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.records).toBeDefined();
+
+        const foundRecord = response.body.records.find((r: any) =>
+          r.title.includes("血液検査")
+        );
+        expect(foundRecord).toBeDefined();
+      });
+
+      it("should handle special characters in search", async () => {
+        const response = await request(app)
+          .get("/api/v1/records?search=röntgen")
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.records).toBeDefined();
+
+        const foundRecord = response.body.records.find((r: any) =>
+          r.title.toLowerCase().includes("röntgen")
+        );
+        expect(foundRecord).toBeDefined();
+      });
+    });
+
+    describe("GET /records/:id - Multilingual Record Retrieval", () => {
+      it("should retrieve record with Chinese metadata", async () => {
+        const chineseRecordId = multilingualRecordIds[8]; // Chinese record
+        const response = await request(app)
+          .get(`/api/v1/records/${chineseRecordId}`)
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record).toBeDefined();
+        expect(response.body.record.title).toBe("CT扫描报告");
+        expect(response.body.record.language).toBe("zh");
+        expect(response.body.record.tags).toContain("CT");
+      });
+
+      it("should retrieve record with Hindi metadata", async () => {
+        const hindiRecordId = multilingualRecordIds[10]; // Hindi record
+        const response = await request(app)
+          .get(`/api/v1/records/${hindiRecordId}`)
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record).toBeDefined();
+        expect(response.body.record.title).toBe("एक्स-रे रिपोर्ट");
+        expect(response.body.record.language).toBe("hi");
+        expect(response.body.record.tags).toContain("एक्स-रे");
+      });
+
+      it("should retrieve record with Thai metadata", async () => {
+        const thaiRecordId = multilingualRecordIds[11]; // Thai record
+        const response = await request(app)
+          .get(`/api/v1/records/${thaiRecordId}`)
+          .set("Authorization", `Bearer ${patientToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record).toBeDefined();
+        expect(response.body.record.title).toBe("ผลตรวจเลือด");
+        expect(response.body.record.language).toBe("th");
+        expect(response.body.record.tags).toContain("เลือด");
+      });
+    });
+
+    describe("Multilingual Data Validation", () => {
+      it("should validate minimum title length for multilingual content", async () => {
+        const uploadData = {
+          title: "短", // Very short Chinese title
+          type: "OTHER",
+          language: "zh",
+          tags: ["测试"],
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: "test.pdf",
+          fileSize: 1024,
+          mimeType: "application/pdf",
+          fileKey: "medical-records/test/short_title.pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+      });
+
+      it("should handle very long multilingual titles", async () => {
+        const longTitle =
+          "详细的医学检查报告包括血液检查、尿液检查、心电图检查、胸部X光检查以及其他各种医学检查项目的综合分析报告文档";
+        const uploadData = {
+          title: longTitle,
+          type: "LAB_REPORT",
+          language: "zh",
+          tags: ["详细", "检查", "综合"],
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: "详细检查报告.pdf",
+          fileSize: 1024576,
+          mimeType: "application/pdf",
+          fileKey: "medical-records/test/long_title.pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record.title).toBe(longTitle);
+
+        multilingualRecordIds.push(response.body.record.id);
+      });
+
+      it("should handle emoji in metadata", async () => {
+        const uploadData = {
+          title: "Heart Health Report ❤️ 心脏健康报告",
+          type: "LAB_REPORT",
+          language: "en",
+          tags: ["heart", "❤️", "健康", "report"],
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: "heart_report_❤️.pdf",
+          fileSize: 1024576,
+          mimeType: "application/pdf",
+          fileKey: "medical-records/test/emoji_test.pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record.title).toContain("❤️");
+        expect(response.body.record.tags).toContain("❤️");
+
+        multilingualRecordIds.push(response.body.record.id);
+      });
+    });
+
+    describe("Multilingual Edge Cases", () => {
+      it("should handle empty tags array with multilingual titles", async () => {
+        const uploadData = {
+          title: "Пустые теги тест",
+          type: "OTHER",
+          language: "ru",
+          tags: [],
+          recordDate: "2024-07-06T10:30:00.000Z",
+          fileName: "пустые_теги.pdf",
+          fileSize: 1024,
+          mimeType: "application/pdf",
+          fileKey: "medical-records/test/empty_tags.pdf",
+        };
+
+        const response = await request(app)
+          .post("/api/v1/records/upload")
+          .set("Authorization", `Bearer ${patientToken}`)
+          .send(uploadData);
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.record.tags).toEqual([]);
+
+        multilingualRecordIds.push(response.body.record.id);
+      });
+    });
   });
 
   describe("POST /records/upload-url", () => {
