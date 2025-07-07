@@ -8,6 +8,7 @@ import sendGridTransport from "nodemailer-sendgrid-transport";
 import { CreateEmailOptions, Resend } from "resend";
 import { IEmailProvider } from "./types";
 import { SendGridProvider } from "./providers/sendgrid.provider";
+import { ResendProvider } from "./providers/resend.provider";
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
 // resend.emails.send({
@@ -23,7 +24,7 @@ export class EmailService {
   emailProvider: IEmailProvider;
 
   private constructor() {
-    this.emailProvider = new SendGridProvider();
+    this.emailProvider = new ResendProvider();
   }
 
   static getInstance(): EmailService {

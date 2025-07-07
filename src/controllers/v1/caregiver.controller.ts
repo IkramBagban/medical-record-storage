@@ -115,24 +115,11 @@ export const requestCaregiverAccess = async (
         patientId: patient.id,
         message,
       },
-      include: {
-        caregiver: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-        patient: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
+      select: {
+        id: true,
+        caregiverId: true,  
+        patientId: true,
+      }
     });
 
     res.status(201).json({
