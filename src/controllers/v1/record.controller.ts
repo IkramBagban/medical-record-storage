@@ -7,7 +7,13 @@ import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
 import { ExtendedRequest } from "../../types/common";
 import { s3Service } from "../../services/s3";
-import { UserRole } from "../../generated/prisma";
+import {
+  AuditLogAction,
+  AuditLogStatus,
+  AuditLogTargetType,
+  UserRole,
+} from "../../generated/prisma";
+import { auditService } from "../../services/audit";
 
 export const getUploadUrl = async (
   req: ExtendedRequest,
@@ -49,6 +55,15 @@ export const getUploadUrl = async (
     const fileKey = s3Service.generateFileKey(userId, fileName);
     const uploadUrl = await s3Service.generateUploadUrl(fileKey, mimeType);
 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_UPLOAD_GET_URL,
+      status: AuditLogStatus.SUCCESS,
+      description: "Upload URL generated successfully",
+      targetType: AuditLogTargetType.RECORD,
+      targetId: fileKey,
+    });
+
     res.status(200).json({
       message: "Upload URL generated successfully",
       uploadUrl,
@@ -56,6 +71,14 @@ export const getUploadUrl = async (
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_UPLOAD_GET_URL,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Failed to get upload URL",
+      targetType: AuditLogTargetType.RECORD,
+    });
     next(err);
   }
 };
@@ -129,6 +152,15 @@ export const uploadRecord = async (
         uploaderId,
       },
     });
+    
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_UPLOAD,
+      status: AuditLogStatus.SUCCESS,
+      description: "Record uploaded successfully",
+      targetType: AuditLogTargetType.RECORD,
+      targetId: record.id,
+    });
 
     res.status(201).json({
       message: "Record uploaded successfully",
@@ -136,6 +168,14 @@ export const uploadRecord = async (
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_UPLOAD,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Failed to upload record",
+      targetType: AuditLogTargetType.RECORD,
+    });
     next(err);
   }
 };
@@ -233,6 +273,14 @@ export const getRecords = async (
       prisma.record.count({ where: filters }),
     ]);
 
+    auditService.logAction({
+      req,
+      action: AuditLogAction.RECORDS_VIEWED,
+      status: AuditLogStatus.SUCCESS,
+      description: "Records retrieved successfully",
+      targetType: AuditLogTargetType.RECORD,
+    });
+
     res.status(200).json({
       message: "Records retrieved successfully",
       success: true,
@@ -248,6 +296,14 @@ export const getRecords = async (
       })),
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORDS_VIEWED,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Failed to retrieve records",
+      targetType: AuditLogTargetType.RECORD,
+    });
     next(err);
   }
 };
@@ -309,6 +365,14 @@ export const getRecord = async (
 
     const downloadUrl = s3Service.getDownloadUrl(record.fileUrl);
 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_VIEWED,
+      status: AuditLogStatus.SUCCESS,
+      description: "Record retrieved successfully",
+      targetType: AuditLogTargetType.RECORD,
+      targetId: record.id,
+    });
     res.status(200).json({
       message: "Record retrieved successfully",
       success: true,
@@ -318,6 +382,14 @@ export const getRecord = async (
       },
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_VIEWED,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Failed to retrieve record",
+      targetType: AuditLogTargetType.RECORD,
+    });
     next(err);
   }
 };
@@ -345,11 +417,28 @@ export const deleteRecord = async (
       data: { isDeleted: true },
     });
 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_DELETE,
+      status: AuditLogStatus.SUCCESS,
+      description: "Record deleted successfully",
+      targetType: AuditLogTargetType.RECORD,
+      targetId: record.id,
+    });
     res.status(200).json({
       message: "Record deleted successfully",
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.RECORD_DELETE,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Failed to delete record",
+      targetType: AuditLogTargetType.RECORD,
+      targetId: req.params.id,
+    });
     next(err);
   }
 };

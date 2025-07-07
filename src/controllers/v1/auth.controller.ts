@@ -6,6 +6,12 @@ import { prisma } from "../../utils/db";
 import { emailService } from "../../services/email/email";
 import { otpService } from "../../services/otp";
 import { throwError } from "../../utils/error";
+import { auditService } from "../../services/audit";
+import {
+  AuditLogAction,
+  AuditLogStatus,
+  AuditLogTargetType,
+} from "../../generated/prisma";
 
 export const sendSignupOtp = async (
   req: Request,
@@ -15,7 +21,7 @@ export const sendSignupOtp = async (
   try {
     const schema = z.object({ email: z.string().email() });
     const result = schema.safeParse(req.body);
-    
+
     if (!result.success) {
       throwError(JSON.stringify(result.error.flatten()), 400);
       return;
@@ -47,6 +53,14 @@ export const sendSignupOtp = async (
 
     if (existingOtp) {
       await emailService.sendOtpEmail(email, existingOtp.otp);
+      await auditService.logAction({
+        req,
+        action: AuditLogAction.SIGNUP_OTP_SENT,
+        status: AuditLogStatus.SUCCESS,
+        description: "OTP sent",
+        targetType: AuditLogTargetType.USER,
+        targetId: req.body.email,
+      });
       res.status(200).json({
         message: "OTP sent to email again. Please check your inbox.",
         success: true,
@@ -55,15 +69,12 @@ export const sendSignupOtp = async (
     }
 
     const { otp, expirationTime } = otpService.generateOtp();
-    
+
     await prisma.otpVerification.deleteMany({
       where: {
         email,
-        OR: [
-          { verified: true },
-          { expiresAt: { lt: new Date() } }
-        ]
-      }
+        OR: [{ verified: true }, { expiresAt: { lt: new Date() } }],
+      },
     });
 
     await prisma.otpVerification.create({
@@ -77,11 +88,28 @@ export const sendSignupOtp = async (
 
     await emailService.sendOtpEmail(email, otp);
 
-    res.status(200).json({ 
-      message: "OTP sent to email", 
-      success: true 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.SIGNUP_OTP_SENT,
+      status: AuditLogStatus.FAILURE,
+      description: "OTP sent",
+      targetType: AuditLogTargetType.USER,
+      targetId: req.body.email,
+    });
+
+    res.status(200).json({
+      message: "OTP sent to email",
+      success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.SIGNUP_OTP_SENT,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Signup OTP failed",
+      targetType: AuditLogTargetType.USER,
+      targetId: req.body.email,
+    });
     next(err);
   }
 };
@@ -130,7 +158,6 @@ export const verifySignup = async (
       return;
     }
 
-
     const user = await prisma.$transaction(async (tx) => {
       await tx.otpVerification.update({
         where: { id: otpVerification.id },
@@ -150,13 +177,30 @@ export const verifySignup = async (
     });
 
     const token = generateToken(user);
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.SIGNUP_VERIFIED,
+      status: AuditLogStatus.SUCCESS,
+      description: "User created successfully",
+      targetType: AuditLogTargetType.USER,
+      targetId: user.id,
+    });
 
-    res.status(201).json({ 
-      token, 
-      message: "User created successfully", 
-      success: true 
+    res.status(201).json({
+      token,
+      message: "User created successfully",
+      success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.SIGNUP_VERIFIED,
+      status: AuditLogStatus.FAILURE,
+      description:
+        err instanceof Error ? err.message : "Signup verification failed",
+      targetType: AuditLogTargetType.USER,
+      targetId: req.body.email,
+    });
     next(err);
   }
 };
@@ -188,11 +232,8 @@ export const sendLoginOtp = async (
     await prisma.otpVerification.deleteMany({
       where: {
         email,
-        OR: [
-          { verified: true },
-          { expiresAt: { lt: new Date() } }
-        ]
-      }
+        OR: [{ verified: true }, { expiresAt: { lt: new Date() } }],
+      },
     });
 
     await prisma.otpVerification.create({
@@ -205,12 +246,28 @@ export const sendLoginOtp = async (
     });
 
     await emailService.sendOtpEmail(email, otp);
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.LOGIN_OTP_SENT,
+      status: AuditLogStatus.SUCCESS,
+      description: "OTP sent",
+      targetType: AuditLogTargetType.USER,
+      targetId: email,
+    });
 
-    res.status(200).json({ 
-      message: "OTP sent to email", 
-      success: true 
+    res.status(200).json({
+      message: "OTP sent to email",
+      success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.LOGIN_OTP_SENT,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Send login OTP failed",
+      targetType: AuditLogTargetType.USER,
+      targetId: req.body.email,
+    });
     next(err);
   }
 };
@@ -280,6 +337,14 @@ export const verifyLogin = async (
       email: user.email,
       role: user.role,
     });
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.LOGIN_VERIFIED,
+      status: AuditLogStatus.SUCCESS,
+      description: "User logged in successfully",
+      targetType: AuditLogTargetType.USER,
+      targetId: user.id,
+    });
 
     res.status(200).json({
       message: "Logged in successfully",
@@ -287,6 +352,14 @@ export const verifyLogin = async (
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.LOGIN_VERIFIED,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Login verification failed",
+      targetType: AuditLogTargetType.USER,
+      targetId: req.body.email,
+    });
     next(err);
   }
 };

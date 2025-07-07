@@ -39,6 +39,7 @@ model User {
 
   sentCaregiverRequests     CaregiverRequest[] @relation("CaregiverRequester")
   receivedCaregiverRequests CaregiverRequest[] @relation("Patient")
+  AuditLog                  AuditLog[]
 }
 
 model OtpVerification {
@@ -112,4 +113,47 @@ model CaregiverRequest {
   patient   User @relation("Patient", fields: [patientId], references: [id])
 
   @@unique([caregiverId, patientId])
+}
+
+enum AuditLogStatus {
+  SUCCESS
+  FAILURE
+}
+
+enum AuditLogAction {
+  LOGIN_OTP_SENT
+  LOGIN_VERIFIED
+
+  SIGNUP_OTP_SENT
+  SIGNUP_VERIFIED
+
+  RECORD_UPLOAD_GET_URL
+  RECORD_UPLOAD
+  RECORDS_VIEWED
+  RECORD_VIEWED
+  RECORD_DELETE
+
+  CAREGIVER_ACCESS_REQUEST
+  CAREGIVER_APPROVED
+  CAREGIVER_REQUEST_VIEWED
+}
+
+enum AuditLogTargetType {
+  USER
+  RECORD
+  CAREGIVER_REQUEST
+}
+
+model AuditLog {
+  id          String              @id @default(cuid())
+  userId      String?
+  action      String
+  description String?
+  targetId    String?
+  targetType  AuditLogTargetType?
+  ipAddress   String?
+  status      AuditLogStatus
+  timestamp   DateTime            @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
 }

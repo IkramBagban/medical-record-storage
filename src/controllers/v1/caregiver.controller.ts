@@ -7,7 +7,13 @@ import {
   approveCaregiverSchema,
   caregiverRequestSchema,
 } from "../../zodSchema/caregiver.schema";
-import { UserRole } from "../../generated/prisma";
+import {
+  AuditLogAction,
+  AuditLogStatus,
+  AuditLogTargetType,
+  UserRole,
+} from "../../generated/prisma";
+import { auditService } from "../../services/audit";
 
 export const getCaregiverRequests = async (
   req: ExtendedRequest,
@@ -53,12 +59,31 @@ export const getCaregiverRequests = async (
       return;
     }
 
+    if (!requests || requests.length === 0) {
+      return throwError("No caregiver requests found", 404);
+    }
+
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_REQUEST_VIEWED,
+      status: AuditLogStatus.SUCCESS,
+      description: "Caregiver requests retrieved successfully",
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+    });
+
     res.status(200).json({
       message: "Caregiver requests retrieved successfully",
       requests,
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_REQUEST_VIEWED,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Failed to retrieve caregiver requests",
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+    });
     next(err);
   }
 };
@@ -117,17 +142,32 @@ export const requestCaregiverAccess = async (
       },
       select: {
         id: true,
-        caregiverId: true,  
+        caregiverId: true,
         patientId: true,
-      }
+      },
     });
 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_ACCESS_REQUEST,
+      status: AuditLogStatus.SUCCESS,
+      description: `Caregiver access request sent to ${patient.email}`,
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+      targetId: caregiverRequest.id,
+    });
     res.status(201).json({
       message: "Caregiver access request sent successfully",
       request: caregiverRequest,
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_ACCESS_REQUEST,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Failed to request caregiver access",
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+    });
     next(err);
   }
 };
@@ -146,7 +186,6 @@ export const approveCaregiverRequest = async (
 
     const { requestId, status } = result.data;
     const patientId = req.user!.id;
-
 
     const caregiverRequest = await prisma.caregiverRequest.findUnique({
       where: { id: requestId },
@@ -191,12 +230,28 @@ export const approveCaregiverRequest = async (
       },
     });
 
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_APPROVED,
+      status: AuditLogStatus.SUCCESS,
+      description: `Caregiver request of ${updatedRequest.caregiver.email}  has been approved`,
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+      targetId: requestId,
+    });
     res.status(200).json({
       message: `Caregiver request ${status.toLowerCase()} successfully`,
       request: updatedRequest,
       success: true,
     });
   } catch (err) {
+    await auditService.logAction({
+      req,
+      action: AuditLogAction.CAREGIVER_APPROVED,
+      status: AuditLogStatus.FAILURE,
+      description: err instanceof Error ? err.message : "Failed to approve caregiver request",
+      targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+      targetId: req.body.requestId,
+    });
     next(err);
   }
 };
