@@ -9,7 +9,7 @@ import {
   AuditLogAction,
   AuditLogStatus,
   AuditLogTargetType,
-} from "../../generated/prisma";
+} from "@prisma/client";
 import { otpFacade } from "../../services/otp/otpFacade";
 
 export const sendSignupOtp = async (

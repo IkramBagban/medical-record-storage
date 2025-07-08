@@ -14,7 +14,7 @@ import {
   CaregiverRequestStatus,
   Record,
   UserRole,
-} from "../../generated/prisma";
+} from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { redisService } from "../../services/redis";
 import { checkRecordAccess } from "../../utils/record";

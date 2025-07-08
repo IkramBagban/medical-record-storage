@@ -4,7 +4,7 @@ import {
   getEmergencyData,
 } from "../../controllers/v1/emergency.controller";
 import { enforceRole } from "../../middlewares/requirePermission.middleware";
-import { UserRole } from "../../generated/prisma";
+import { UserRole } from "@prisma/client";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
 const router = express.Router();

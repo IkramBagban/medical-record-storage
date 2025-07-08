@@ -1,4 +1,4 @@
-import { UserRole } from "../../generated/prisma";
+import { UserRole } from "@prisma/client";
 import { Actions } from "../../utils/constants";
 import { RolePermissions } from "./permissions";
 

@@ -5,7 +5,7 @@ import {
   getCaregiverRequests,
 } from "../../controllers/v1/caregiver.controller";
 import { enforceRole } from "../../middlewares/requirePermission.middleware";
-import { UserRole } from "../../generated/prisma";
+import { UserRole } from "@prisma/client";
 
 const router = express.Router();
 

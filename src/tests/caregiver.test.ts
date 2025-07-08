@@ -2,7 +2,7 @@ import request from "supertest";
 import app, { server } from "..";
 import { prisma } from "../utils/db";
 import { generateToken } from "../utils/jwt";
-import { AccountType, User, UserRole } from "../generated/prisma";
+import { AccountType, User, UserRole } from "@prisma/client";
 
 describe("Caregiver API", () => {
   let patientToken: string;

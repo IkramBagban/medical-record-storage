@@ -2,7 +2,7 @@ import {
   AuditLogAction,
   AuditLogStatus,
   AuditLogTargetType,
-} from "../generated/prisma";
+} from "@prisma/client";
 import { ExtendedRequest } from "../types/common";
 import { prisma } from "../utils/db";
 import { getClientIp } from "../utils/helper";

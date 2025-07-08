@@ -1,4 +1,4 @@
-import { CaregiverRequestStatus } from "../generated/prisma";
+import { CaregiverRequestStatus } from "@prisma/client";
 import { prisma } from "./db";
 
 export const checkRecordAccess = async (

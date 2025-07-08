@@ -1,4 +1,4 @@
-import { AccountType, UserRole } from "../../generated/prisma";
+import { AccountType, UserRole } from "@prisma/client";
 import { prisma } from "../../utils/db";
 import { testEmail } from "./common";
 

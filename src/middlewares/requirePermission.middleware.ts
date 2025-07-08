@@ -2,7 +2,7 @@ import { NextFunction, Response } from "express";
 import { rbac } from "../lib/rbac/rbac";
 import { ExtendedRequest } from "../types/common";
 import { throwError } from "../utils/error";
-import { UserRole } from "../generated/prisma";
+import { UserRole } from "@prisma/client";
 import { Actions } from "../utils/constants";
 
 export const enforcePermission = (requiredPermissions: Actions[]) => {

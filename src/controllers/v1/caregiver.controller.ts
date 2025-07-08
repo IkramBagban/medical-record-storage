@@ -16,7 +16,7 @@ import {
   AuditLogStatus,
   AuditLogTargetType,
   UserRole,
-} from "../../generated/prisma";
+} from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { redisService } from "../../services/redis";
 

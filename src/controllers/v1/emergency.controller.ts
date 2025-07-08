@@ -12,7 +12,7 @@ import {
   AuditLogStatus,
   AuditLogTargetType,
   UserRole,
-} from "../../generated/prisma";
+} from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { customAlphabet } from "nanoid";
 import { generateEmergencySnapshotSchema } from "../../zodSchema/emergency.schema";

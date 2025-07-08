@@ -1,5 +1,5 @@
+import { PrismaClientInitializationError } from "@prisma/client/runtime/library";
 import { Request, Response, NextFunction } from "express";
-import { PrismaClientInitializationError } from "../generated/prisma/runtime/library";
 
 export const errorHandler = (
   err: any,
