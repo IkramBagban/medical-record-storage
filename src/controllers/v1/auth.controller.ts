@@ -3,8 +3,6 @@ import { z } from "zod";
 import { generateToken } from "../../utils/jwt";
 import { signupSchema, verifyOtpSchema } from "../../zodSchema/auth.schema";
 import { prisma } from "../../utils/db";
-import { emailService } from "../../services/email/email";
-import { otpService } from "../../services/otp";
 import { throwError } from "../../utils/error";
 import { auditService } from "../../services/audit";
 import {
@@ -12,6 +10,7 @@ import {
   AuditLogStatus,
   AuditLogTargetType,
 } from "../../generated/prisma";
+import { otpFacade } from "../../services/otp/otpFacade";
 
 export const sendSignupOtp = async (
   req: Request,
@@ -38,55 +37,7 @@ export const sendSignupOtp = async (
       return;
     }
 
-    const existingOtp = await prisma.otpVerification.findFirst({
-      where: {
-        email,
-        verified: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      select: {
-        otp: true,
-      },
-    });
-
-    if (existingOtp) {
-      await emailService.sendOtpEmail(email, existingOtp.otp);
-      await auditService.logAction({
-        req,
-        action: AuditLogAction.SIGNUP_OTP_SENT,
-        status: AuditLogStatus.SUCCESS,
-        description: "OTP sent",
-        targetType: AuditLogTargetType.USER,
-        targetId: req.body.email,
-      });
-      res.status(200).json({
-        message: "OTP sent to email again. Please check your inbox.",
-        success: true,
-      });
-      return;
-    }
-
-    const { otp, expirationTime } = otpService.generateOtp();
-
-    await prisma.otpVerification.deleteMany({
-      where: {
-        email,
-        OR: [{ verified: true }, { expiresAt: { lt: new Date() } }],
-      },
-    });
-
-    await prisma.otpVerification.create({
-      data: {
-        email,
-        otp: otp,
-        expiresAt: expirationTime,
-        verified: false,
-      },
-    });
-
-    await emailService.sendOtpEmail(email, otp);
+    await otpFacade.sendOtpToEmail(email);
 
     await auditService.logAction({
       req,
@@ -134,46 +85,20 @@ export const verifySignup = async (
       return;
     }
 
-    const otpVerification = await prisma.otpVerification.findFirst({
-      where: {
-        email,
-        verified: false,
-        expiresAt: {
-          gt: new Date(), // not expired
-        },
-      },
+    const { isValid: isOtpValid, message: otpMessage } =
+      await otpFacade.verifyOtp(email, otp);
+    if (!isOtpValid) {
+      throwError(otpMessage, 400);
+      return;
+    }
+
+    const user = await prisma.user.create({
+      data: { name, email, accountType, role },
       select: {
         id: true,
-        otp: true,
+        email: true,
+        role: true,
       },
-    });
-
-    if (!otpVerification) {
-      throwError("Invalid email or expired OTP", 400);
-      return;
-    }
-    const isOtpValid = await otpService.verifyOtp(otp, otpVerification.otp);
-    if (!isOtpValid) {
-      throwError("Invalid OTP", 400);
-      return;
-    }
-
-    const user = await prisma.$transaction(async (tx) => {
-      await tx.otpVerification.update({
-        where: { id: otpVerification.id },
-        data: { verified: true },
-      });
-
-      const newUser = await tx.user.create({
-        data: { name, email, accountType, role },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-        },
-      });
-
-      return newUser;
     });
 
     const token = generateToken(user);
@@ -227,25 +152,7 @@ export const sendLoginOtp = async (
       return;
     }
 
-    const { otp, expirationTime } = otpService.generateOtp();
-
-    await prisma.otpVerification.deleteMany({
-      where: {
-        email,
-        OR: [{ verified: true }, { expiresAt: { lt: new Date() } }],
-      },
-    });
-
-    await prisma.otpVerification.create({
-      data: {
-        email,
-        otp: otp,
-        expiresAt: expirationTime,
-        verified: false,
-      },
-    });
-
-    await emailService.sendOtpEmail(email, otp);
+    await otpFacade.sendOtpToEmail(email);
     await auditService.logAction({
       req,
       action: AuditLogAction.LOGIN_OTP_SENT,
@@ -286,28 +193,12 @@ export const verifyLogin = async (
 
     const { email, otp } = result.data;
 
-    const otpRecord = await prisma.otpVerification.findFirst({
-      where: {
-        email,
-        verified: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      select: {
-        id: true,
-        otp: true,
-      },
-    });
+  
 
-    if (!otpRecord) {
-      throwError("OTP expired or not found", 410); // 410 = Gone
-      return;
-    }
-
-    const isValid = await otpService.verifyOtp(otp, otpRecord.otp);
+    // const isValid = await otpService.verifyOtp(otp, otpRecord.otp);
+    const {isValid, message} = await otpFacade.verifyOtp(email, otp);
     if (!isValid) {
-      throwError("Invalid OTP", 400);
+      throwError(message, 400);
       return;
     }
 
@@ -327,16 +218,13 @@ export const verifyLogin = async (
       return;
     }
 
-    await prisma.otpVerification.update({
-      where: { id: otpRecord.id },
-      data: { verified: true },
-    });
 
     const token = generateToken({
       id: user.id,
       email: user.email,
       role: user.role,
     });
+    
     await auditService.logAction({
       req,
       action: AuditLogAction.LOGIN_VERIFIED,
@@ -356,7 +244,8 @@ export const verifyLogin = async (
       req,
       action: AuditLogAction.LOGIN_VERIFIED,
       status: AuditLogStatus.FAILURE,
-      description: err instanceof Error ? err.message : "Login verification failed",
+      description:
+        err instanceof Error ? err.message : "Login verification failed",
       targetType: AuditLogTargetType.USER,
       targetId: req.body.email,
     });
