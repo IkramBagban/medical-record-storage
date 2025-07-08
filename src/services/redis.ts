@@ -85,23 +85,31 @@ export class RedisService {
   async disconnect(): Promise<void> {
     await this.client.disconnect();
   }
-
   async set(
     key: string,
-    value: string,
-    options?: { EX?: number }
+    value: any,
+    options?: { EX?: number; json?: boolean }
   ): Promise<void> {
     try {
-      await this.client.set(key, value, options);
+      const storeValue =
+        options?.json === true ? JSON.stringify(value) : String(value);
+      const { json, ...redisOptions } = options || {};
+
+      await this.client.set(key, storeValue, redisOptions);
     } catch (error) {
       console.error("Error setting Redis key:", error);
     }
   }
 
-  async get(key: string): Promise<string | null> {
+  async get<T = string>(
+    key: string,
+    options?: { json?: boolean }
+  ): Promise<T | string | null> {
     try {
       const value = await this.client.get(key);
-      return value || null;
+      if (!value) return null;
+
+      return options?.json === true ? JSON.parse(value) : value;
     } catch (error) {
       console.error("Error getting Redis key:", error);
       return null;
@@ -126,6 +134,31 @@ export class RedisService {
       console.error(`Failed to increment key "${key}":`, error);
       throw error;
     }
+  }
+
+  async deleteKeysByPattern(pattern: string): Promise<void> {
+    let cursor = "0";
+    let totalDeleted = 0;
+
+    while (true) {
+      const { cursor: nextCursor, keys } = await this.client.scan(cursor, {
+        MATCH: pattern,
+      });
+
+      if (Array.isArray(keys) && keys.length > 0) {
+        console.log(`Deleting keys: ${keys.join(", ")}`);
+        const deletedCount = await this.client.del(keys);
+        console.log(`Deleted ${deletedCount} keys matching pattern "${pattern}"`);
+        totalDeleted += keys.length;
+      }
+
+      if (nextCursor === "0") break;
+      cursor = nextCursor;
+    }
+
+    console.log(
+      `🧹 Deleted ${totalDeleted} keys matching pattern "${pattern}"`
+    );
   }
 
   async expire(key: string, seconds: number): Promise<void> {

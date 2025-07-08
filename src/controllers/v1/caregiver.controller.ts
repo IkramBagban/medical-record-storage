@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from "express";
 
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
-import { ExtendedRequest } from "../../types/common";
+import {
+  CACHE_TTL,
+  ExtendedRequest,
+  RedisKeysPrefix,
+} from "../../types/common";
 import {
   approveCaregiverSchema,
   caregiverRequestSchema,
@@ -14,6 +18,7 @@ import {
   UserRole,
 } from "../../generated/prisma";
 import { auditService } from "../../services/audit";
+import { redisService } from "../../services/redis";
 
 export const getCaregiverRequests = async (
   req: ExtendedRequest,
@@ -24,8 +29,21 @@ export const getCaregiverRequests = async (
     const userId = req.user!.id;
     const userRole = req.user!.role;
 
-    let requests;
+    const cacheKey = `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${userId}`;
+    const cached = await redisService.get(cacheKey, { json: true });
+    if (cached) {
+      await auditService.logAction({
+        req,
+        action: AuditLogAction.CAREGIVER_REQUEST_VIEWED,
+        status: AuditLogStatus.SUCCESS,
+        description: "Caregiver requests retrieved from cache",
+        targetType: AuditLogTargetType.CAREGIVER_REQUEST,
+      });
+      res.status(200).json(cached);
+      return;
+    }
 
+    let requests;
     if (userRole === "CAREGIVER") {
       requests = await prisma.caregiverRequest.findMany({
         where: { caregiverId: userId },
@@ -71,17 +89,25 @@ export const getCaregiverRequests = async (
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
     });
 
-    res.status(200).json({
+    const response = {
       message: "Caregiver requests retrieved successfully",
       requests,
       success: true,
+    };
+    await redisService.set(cacheKey, response, {
+      EX: CACHE_TTL.CAREGIVER_ACCESS,
+      json: true,
     });
+    res.status(200).json(response);
   } catch (err) {
     await auditService.logAction({
       req,
       action: AuditLogAction.CAREGIVER_REQUEST_VIEWED,
       status: AuditLogStatus.FAILURE,
-      description: err instanceof Error ? err.message : "Failed to retrieve caregiver requests",
+      description:
+        err instanceof Error
+          ? err.message
+          : "Failed to retrieve caregiver requests",
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
     });
     next(err);
@@ -155,6 +181,13 @@ export const requestCaregiverAccess = async (
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
       targetId: caregiverRequest.id,
     });
+
+    await redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${req.user!.id}*`
+    );
+    await redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patient.id}*`
+    );
     res.status(201).json({
       message: "Caregiver access request sent successfully",
       request: caregiverRequest,
@@ -165,7 +198,10 @@ export const requestCaregiverAccess = async (
       req,
       action: AuditLogAction.CAREGIVER_ACCESS_REQUEST,
       status: AuditLogStatus.FAILURE,
-      description: err instanceof Error ? err.message : "Failed to request caregiver access",
+      description:
+        err instanceof Error
+          ? err.message
+          : "Failed to request caregiver access",
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
     });
     next(err);
@@ -238,6 +274,13 @@ export const approveCaregiverRequest = async (
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
       targetId: requestId,
     });
+
+    await redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${updatedRequest.caregiver.id}`
+    );
+    await redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patientId}*`
+    );
     res.status(200).json({
       message: `Caregiver request ${status.toLowerCase()} successfully`,
       request: updatedRequest,
@@ -248,7 +291,10 @@ export const approveCaregiverRequest = async (
       req,
       action: AuditLogAction.CAREGIVER_APPROVED,
       status: AuditLogStatus.FAILURE,
-      description: err instanceof Error ? err.message : "Failed to approve caregiver request",
+      description:
+        err instanceof Error
+          ? err.message
+          : "Failed to approve caregiver request",
       targetType: AuditLogTargetType.CAREGIVER_REQUEST,
       targetId: req.body.requestId,
     });

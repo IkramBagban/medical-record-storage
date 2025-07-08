@@ -5,15 +5,29 @@ import {
 } from "../../zodSchema/record.schema";
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
-import { ExtendedRequest } from "../../types/common";
+import { CACHE_TTL, ExtendedRequest, RedisKeysPrefix } from "../../types/common";
 import { s3Service } from "../../services/s3";
 import {
   AuditLogAction,
   AuditLogStatus,
   AuditLogTargetType,
+  CaregiverRequestStatus,
+  Record,
   UserRole,
 } from "../../generated/prisma";
 import { auditService } from "../../services/audit";
+import { redisService } from "../../services/redis";
+import { checkRecordAccess } from "../../utils/record";
+
+const CACHE_KEYS = {
+  RECORD: (id: string) => `record:${id}`,
+  RECORDS_LIST: (userId: string, filters: string) =>
+    `records:${userId}:${filters}`,
+  CAREGIVER_ACCESS: (caregiverId: string, patientId: string) =>
+    `caregiver:${caregiverId}:${patientId}`,
+};
+
+
 
 export const getUploadUrl = async (
   req: ExtendedRequest,
@@ -152,7 +166,7 @@ export const uploadRecord = async (
         uploaderId,
       },
     });
-    
+
     await auditService.logAction({
       req,
       action: AuditLogAction.RECORD_UPLOAD,
@@ -161,6 +175,10 @@ export const uploadRecord = async (
       targetType: AuditLogTargetType.RECORD,
       targetId: record.id,
     });
+
+    redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`
+    );
 
     res.status(201).json({
       message: "Record uploaded successfully",
@@ -207,13 +225,11 @@ export const getRecords = async (
     let ownerId = currentUserId;
 
     if (userId && currentUserRole === UserRole.CAREGIVER) {
-      const caregiverAccess = await prisma.caregiverRequest.findFirst({
-        where: {
-          caregiverId: currentUserId,
-          patientId: userId,
-          status: "APPROVED",
-        },
-      });
+      const caregiverAccess = await checkRecordAccess(
+        currentUserId,
+        userId,
+        CaregiverRequestStatus.APPROVED
+      );
 
       if (!caregiverAccess) {
         throwError(
@@ -224,6 +240,29 @@ export const getRecords = async (
       }
 
       ownerId = userId;
+    }
+
+    const filtersKey = JSON.stringify({
+      type,
+      dateFrom,
+      dateTo,
+      tags,
+      page,
+      limit,
+    });
+    const cacheKey = `${RedisKeysPrefix.RECORDS_LIST}:${ownerId}:${filtersKey}`;
+
+    const cachedResult = await redisService.get(cacheKey, { json: true });
+    if (cachedResult) {
+      auditService.logAction({
+        req,
+        action: AuditLogAction.RECORDS_VIEWED,
+        status: AuditLogStatus.SUCCESS,
+        description: "Cache hit: Records retrieved successfully",
+        targetType: AuditLogTargetType.RECORD,
+      });
+      res.status(200).json(cachedResult);
+      return;
     }
 
     const filters: any = {
@@ -281,7 +320,7 @@ export const getRecords = async (
       targetType: AuditLogTargetType.RECORD,
     });
 
-    res.status(200).json({
+    const response = {
       message: "Records retrieved successfully",
       success: true,
       pagination: {
@@ -294,7 +333,13 @@ export const getRecords = async (
         ...record,
         downloadUrl: s3Service.getDownloadUrl(record.fileUrl),
       })),
+    };
+
+    await redisService.set(cacheKey, response, {
+      EX: CACHE_TTL.RECORDS_LIST,
+      json: true,
     });
+    res.status(200).json(response);
   } catch (err) {
     await auditService.logAction({
       req,
@@ -317,26 +362,30 @@ export const getRecord = async (
     const { id } = req.params;
     const currentUserId = req.user!.id;
     const currentUserRole = req.user!.role;
-
-    const record = await prisma.record.findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        uploader: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const cacheKey = CACHE_KEYS.RECORD(id);
+    const cached = await redisService.get(cacheKey, { json: true });
+    const record =
+      typeof cached === "object" && cached !== null
+        ? cached
+        : await prisma.record.findUnique({
+            where: { id },
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              uploader: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          });
 
     if (!record || record.isDeleted) {
       throwError("Record not found", 404);
@@ -348,14 +397,11 @@ export const getRecord = async (
     if (record.ownerId === currentUserId) {
       hasAccess = true;
     } else if (currentUserRole === "CAREGIVER") {
-      const caregiverAccess = await prisma.caregiverRequest.findFirst({
-        where: {
-          caregiverId: currentUserId,
-          patientId: record.ownerId,
-          status: "APPROVED",
-        },
-      });
-      hasAccess = !!caregiverAccess;
+      hasAccess = await checkRecordAccess(
+        currentUserId,
+        record.ownerId,
+        CaregiverRequestStatus.APPROVED
+      );
     }
 
     if (!hasAccess) {
@@ -372,6 +418,11 @@ export const getRecord = async (
       description: "Record retrieved successfully",
       targetType: AuditLogTargetType.RECORD,
       targetId: record.id,
+    });
+
+    await redisService.set(cacheKey, record, {
+      EX: CACHE_TTL.RECORD,
+      json: true,
     });
     res.status(200).json({
       message: "Record retrieved successfully",
@@ -425,6 +476,11 @@ export const deleteRecord = async (
       targetType: AuditLogTargetType.RECORD,
       targetId: record.id,
     });
+
+    redisService.deleteKeysByPattern(
+      `${RedisKeysPrefix.RECORDS_LIST}:${currentUserId}*`
+    );
+
     res.status(200).json({
       message: "Record deleted successfully",
       success: true,

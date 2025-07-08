@@ -6,7 +6,18 @@ export interface ExtendedRequest extends Request {
 }
 
 export enum RedisKeysPrefix {
-  OTP = "otp:",
+  OTP = "otp",
   OTP_LIMIT = "otp:limit",
   OTP_VERIFY = "otp:verify",
+
+  RECORD = "record",
+  RECORDS_LIST = "records",
+
+  CAREGIVER_REQUEST_LIST = "caregiver_requests",
 }
+
+export const CACHE_TTL = {
+  RECORD: 900,
+  RECORDS_LIST: 900, 
+  CAREGIVER_ACCESS: 900, 
+};
