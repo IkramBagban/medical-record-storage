@@ -1,28 +1,15 @@
 import { createClient } from "redis";
 
 export interface RedisConfig {
-  username?: string;
-  host: string;
-  port: number;
-  password: string;
+  REDIS_URL?: string;
 }
 
 export class RedisService {
   private client: ReturnType<typeof createClient>;
   private static instance: RedisService;
 
-  private constructor(config: RedisConfig) {
-    const validated = RedisService.validateConfig(config);
-
-    this.client = createClient({
-      username: validated.username || "default",
-      password: validated.password,
-      socket: {
-        host: validated.host,
-        port: validated.port,
-      },
-    });
-
+  private constructor(private config: Required<RedisConfig>) {
+    this.client = createClient({ url: this.config.REDIS_URL });
     this.client.on("connect", () => {
       console.log("Redis connected successfully");
     });
@@ -37,37 +24,25 @@ export class RedisService {
     this.connect();
   }
 
-  private static validateConfig(config: RedisConfig): Required<RedisConfig> {
-    const { host, port, password, username } = config;
-    console.log("redis config", config);
-
-    const missing: string[] = [];
-    if (!host) missing.push("host");
-    if (!port) missing.push("port");
-    if (!password) missing.push("password");
-
-    if (missing.length > 0) {
-      throw new Error(`Missing Redis config values: ${missing.join(", ")}`);
-    }
-
-    return {
-      host: host!,
-      port: port!,
-      password: password!,
-      username: username || "default",
-    };
-  }
-  static getInstance(config?: RedisConfig): RedisService {
-    console.log("config", config);
+  static getInstance(config: RedisConfig = {}): RedisService {
     if (!RedisService.instance) {
-      if (!config) {
-        throw new Error(
-          "RedisService: No config provided. Please call getInstance(config) with Redis connection info."
-        );
-      }
-      RedisService.instance = new RedisService(config);
+      const validatedConfig = this.validateConfig(config);
+      RedisService.instance = new RedisService(validatedConfig);
     }
     return RedisService.instance;
+  }
+
+  private static validateConfig(config: RedisConfig): Required<RedisConfig> {
+    const REDIS_URL =
+      config.REDIS_URL || process.env.REDIS_URL || "redis://localhost:6379";
+
+    if (!config.REDIS_URL && !process.env.REDIS_URL) {
+      console.info(
+        "No REDIS_URL provided. Using default redis://localhost:6379"
+      );
+    }
+
+    return { REDIS_URL };
   }
 
   async connect(): Promise<void> {
@@ -148,7 +123,9 @@ export class RedisService {
       if (Array.isArray(keys) && keys.length > 0) {
         console.log(`Deleting keys: ${keys.join(", ")}`);
         const deletedCount = await this.client.del(keys);
-        console.log(`Deleted ${deletedCount} keys matching pattern "${pattern}"`);
+        console.log(
+          `Deleted ${deletedCount} keys matching pattern "${pattern}"`
+        );
         totalDeleted += keys.length;
       }
 
@@ -180,8 +157,5 @@ export class RedisService {
 }
 
 export const redisService = RedisService.getInstance({
-  host: process.env.REDIS_HOST!,
-  port: Number(process.env.REDIS_PORT!),
-  password: process.env.REDIS_PASSWORD!,
-  username: process.env.REDIS_USERNAME!,
+  REDIS_URL: process.env.REDIS_URL,
 });
