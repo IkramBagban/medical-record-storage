@@ -37,9 +37,10 @@ model User {
   records         Record[] @relation("RecordOwner")
   uploadedRecords Record[] @relation("RecordUploader")
 
-  sentCaregiverRequests     CaregiverRequest[] @relation("CaregiverRequester")
-  receivedCaregiverRequests CaregiverRequest[] @relation("Patient")
+  sentCaregiverRequests     CaregiverRequest[]  @relation("CaregiverRequester")
+  receivedCaregiverRequests CaregiverRequest[]  @relation("Patient")
   AuditLog                  AuditLog[]
+  EmergencySnapshot         EmergencySnapshot[]
 }
 
 model OtpVerification {
@@ -136,12 +137,16 @@ enum AuditLogAction {
   CAREGIVER_ACCESS_REQUEST
   CAREGIVER_APPROVED
   CAREGIVER_REQUEST_VIEWED
+
+  EMERGENCY_SNAPSHOT_GENERATED
+  EMERGENCY_SNAPSHOT_VIEWED
 }
 
 enum AuditLogTargetType {
   USER
   RECORD
   CAREGIVER_REQUEST
+  EMERGENCY
 }
 
 model AuditLog {
@@ -156,4 +161,18 @@ model AuditLog {
   timestamp   DateTime            @default(now())
 
   user User? @relation(fields: [userId], references: [id])
+}
+
+model EmergencySnapshot {
+  id          String    @id @default(cuid())
+  qrToken     String    @unique
+  userId      String
+  title       String
+  description String?
+  recordIds   String[]
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([qrToken])
 }
