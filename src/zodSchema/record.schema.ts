@@ -4,14 +4,21 @@ export const uploadRecordSchema = z.object({
   title: z.string().min(1),
   type: z.enum([
     "PRESCRIPTION",
-    "LAB_REPORT", 
+    "LAB_REPORT",
     "SCAN",
     "CONSULTATION",
     "VACCINATION",
     "MEDICAL_CERTIFICATE",
-    "OTHER"
+    "OTHER",
   ]),
-  language: z.string().default("en"),
+  language: z
+    .string()
+    .length(
+      2,
+      "Invalid language code. Should use ISO 639-1(i.e 'en', 'hi', 'fr', etc) format."
+    )
+    .optional()
+    .default("en"),
   tags: z.array(z.string()).default([]),
   recordDate: z.string().datetime(),
   fileName: z.string(),
@@ -20,20 +27,21 @@ export const uploadRecordSchema = z.object({
   ownerId: z.string().optional(),
 });
 
-
 export const getRecordsSchema = z.object({
-  type: z.enum([
-    "PRESCRIPTION",
-    "LAB_REPORT",
-    "SCAN", 
-    "CONSULTATION",
-    "VACCINATION",
-    "MEDICAL_CERTIFICATE",
-    "OTHER"
-  ]).optional(),
+  type: z
+    .enum([
+      "PRESCRIPTION",
+      "LAB_REPORT",
+      "SCAN",
+      "CONSULTATION",
+      "VACCINATION",
+      "MEDICAL_CERTIFICATE",
+      "OTHER",
+    ])
+    .optional(),
   dateFrom: z.string().datetime().optional(),
   dateTo: z.string().datetime().optional(),
-  tags: z.string().optional(), 
+  tags: z.string().optional(),
   userId: z.string().optional(),
   page: z.string().optional(),
   limit: z.string().optional(),
