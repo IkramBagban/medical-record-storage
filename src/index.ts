@@ -26,7 +26,7 @@ app.use(limiter);
 app.set("trust proxy", process.env.NODE_ENV === "production"); // if usin a reverse proxy
 app.use(express.json());
 app.use("/api", v1Routes);
-app.get("/api/me", authMiddleware, (req: ExtendedRequest, res: Response) => {
+app.get("/api/v1/me", authMiddleware, (req: ExtendedRequest, res: Response) => {
   res.json({
     message: "Authenticated user data",
     user: req.user,

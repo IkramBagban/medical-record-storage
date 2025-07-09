@@ -8,3 +8,11 @@ export enum Actions {
   APPROVE_CAREGIVER_REQUEST = "approve_caregiver_request",
   GET_CAREGIVER_REQUESTS = "get_caregiver_requests",
 }
+
+export const allowedMimeTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/jpg",
+  "application/pdf",
+  "text/plain",
+];

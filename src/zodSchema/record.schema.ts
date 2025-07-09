@@ -46,3 +46,8 @@ export const getRecordsSchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
 });
+
+export const ocrUploadSchema = z.object({
+  fileName: z.string().min(1, "File name is required"),
+  mimeType: z.string().min(1, "MIME type is required"),
+});

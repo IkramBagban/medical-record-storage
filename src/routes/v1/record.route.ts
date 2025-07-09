@@ -5,6 +5,7 @@ import {
   getRecords,
   getRecord,
   deleteRecord,
+  ocrUpload,
 } from "../../controllers/v1/record.controller";
 
 const router = express.Router();
@@ -14,5 +15,7 @@ router.post("/upload", uploadRecord);
 router.get("/", getRecords);
 router.get("/:id", getRecord);
 router.delete("/:id", deleteRecord);
+
+router.post("/ocr-upload", ocrUpload);
 
 export default router;

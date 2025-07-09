@@ -40,6 +40,7 @@ model User {
   receivedCaregiverRequests CaregiverRequest[]  @relation("Patient")
   AuditLog                  AuditLog[]
   EmergencySnapshot         EmergencySnapshot[]
+  OCRResult                 OCRResult[]
 }
 
 model OtpVerification {
@@ -139,6 +140,10 @@ enum AuditLogAction {
 
   EMERGENCY_SNAPSHOT_GENERATED
   EMERGENCY_SNAPSHOT_VIEWED
+
+  OCR_FILE_UPLOADED
+  OCR_FILE_PROCESSED
+  OCR_RESULTS_VIEWED
 }
 
 enum AuditLogTargetType {
@@ -163,15 +168,39 @@ model AuditLog {
 }
 
 model EmergencySnapshot {
-  id          String    @id @default(cuid())
-  qrToken     String    @unique
+  id          String   @id @default(cuid())
+  qrToken     String   @unique
   userId      String
   title       String
   description String?
   recordIds   String[]
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
   @@index([qrToken])
+}
+
+enum OcrStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OCRResult {
+  id            String    @id @default(cuid())
+  fileKey       String    @unique()
+  fileName      String
+  mimeType      String
+  extractedData Json?
+  status        OcrStatus @default(PENDING)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
+  @@index([fileKey])
 }
