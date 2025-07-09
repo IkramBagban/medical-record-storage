@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "AuditLogAction" ADD VALUE 'OCR_RESULTS_VIEWED';

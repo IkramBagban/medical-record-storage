@@ -1,0 +1,96 @@
+org: ikrambagban
+app: worker
+service: ocr-worker
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-plugin-existing-s3
+
+package:
+  individually: true
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  region: us-east-1
+  environment:
+    S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
+    DATABASE_URL: ${env:DATABASE_URL}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetBucketNotification
+        - s3:PutBucketNotification
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:GetQueueAttributes
+        - sqs:SendMessage
+      Resource:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:s3:::${env:S3_BUCKET_NAME}"
+        - Fn::GetAtt: [ OcrQueue, Arn ]
+        - Fn::GetAtt: [ OcrDLQ, Arn ]
+
+functions:
+  ocrProcessor:
+    handler: src/handler.ocrProcessor
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ OcrQueue, Arn ]
+          batchSize: 1
+
+  ocrFailureHandler:
+    handler: src/handler.ocrFailureHandler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [ OcrDLQ, Arn ]
+          batchSize: 1
+
+custom:
+  existingS3:
+    force: true
+    bucketConfigurations:
+      - bucketName: ${env:S3_BUCKET_NAME}
+        events:
+          - s3:ObjectCreated:*
+        rules:
+          - prefix: ocr-files/
+        function: ocrProcessor
+
+resources:
+  Resources:
+    OcrQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ocr-jobs-queue
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [ OcrDLQ, Arn ]
+          maxReceiveCount: 3
+
+    OcrDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ocr-jobs-dlq
+
+    OcrQueuePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - Ref: OcrQueue
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: s3.amazonaws.com
+              Action: sqs:SendMessage
+              Resource:
+                Fn::GetAtt: [ OcrQueue, Arn ]
+              Condition:
+                ArnLike:
+                  aws:SourceArn: arn:aws:s3:::${env:S3_BUCKET_NAME}

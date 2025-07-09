@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "OcrStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+
+-- AlterTable
+ALTER TABLE "OCRResult" ADD COLUMN     "status" "OcrStatus" NOT NULL DEFAULT 'PENDING';
