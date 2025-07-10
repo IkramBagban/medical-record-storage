@@ -16,6 +16,7 @@ provider:
   environment:
     S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
     DATABASE_URL: ${env:DATABASE_URL}
+    API_URL: ${env:API_URL}
   iamRoleStatements:
     - Effect: Allow
       Action:
