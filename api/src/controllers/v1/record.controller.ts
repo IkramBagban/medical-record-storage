@@ -3,6 +3,7 @@ import {
   uploadRecordSchema,
   getRecordsSchema,
   ocrUploadSchema,
+  OcrFailureSchema,
 } from "../../zodSchema/record.schema";
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
@@ -27,6 +28,7 @@ import { redisService } from "../../services/redis";
 import { checkRecordAccess } from "../../utils/record";
 import { v4 as uuidv4 } from "uuid";
 import { allowedMimeTypes } from "../../utils/constants";
+import z from "zod";
 
 const CACHE_KEYS = {
   RECORD: (id: string) => `record:${id}`,
@@ -625,5 +627,35 @@ export const getOcrResults = async (
       targetType: AuditLogTargetType.RECORD,
     });
     next(err);
+  }
+};
+
+export const ocrFailure = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+
+
+    const result = OcrFailureSchema.safeParse(req.params);
+
+    if (!result.success) {
+      throwError(JSON.stringify(result.error.flatten()), 400);
+    }
+
+    const { fileKey } = req.params;
+    await prisma.oCRResult.update({
+      where: {
+        fileKey: fileKey,
+      },
+      data: {
+        status: OcrStatus.FAILED,
+      },
+    });
+
+    res.status(200).json({ message: `OCR failed for ${fileKey}` });
+  } catch (error) {
+    next(error);
   }
 };

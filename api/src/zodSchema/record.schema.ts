@@ -51,3 +51,7 @@ export const ocrUploadSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
   mimeType: z.string().min(1, "MIME type is required"),
 });
+
+export const OcrFailureSchema = z.object({
+  fileKey: z.string(),
+});
