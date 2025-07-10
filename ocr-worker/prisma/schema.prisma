@@ -77,7 +77,7 @@ model Record {
   type       RecordType
   language   String     @default("en")
   tags       String[]
-  fileUrl    String     @unique()
+  fileKey    String     @unique()
   fileName   String
   fileSize   Int
   mimeType   String

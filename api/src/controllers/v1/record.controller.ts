@@ -18,6 +18,7 @@ import {
   AuditLogTargetType,
   CaregiverRequestStatus,
   OcrStatus,
+  PlanLimitStatus,
   Record,
   UserRole,
 } from "@prisma/client";
@@ -149,35 +150,46 @@ export const uploadRecord = async (
       return;
     }
 
-    const record = await prisma.record.create({
-      data: {
-        title,
-        type,
-        language,
-        tags,
-        recordDate: new Date(recordDate),
-        fileName,
-        fileSize,
-        mimeType,
-        fileUrl: fileKey,
-        ownerId: actualOwnerId,
-        uploaderId,
-      },
-    });
+    const [record] = await prisma.$transaction([
+      prisma.record.create({
+        data: {
+          title,
+          type,
+          language,
+          tags,
+          recordDate: new Date(recordDate),
+          fileName,
+          fileSize,
+          mimeType,
+          fileKey: fileKey,
+          ownerId: actualOwnerId,
+          uploaderId,
+        },
+      }),
+      prisma.planLimit.updateMany({
+        where: { userId: actualOwnerId, status: PlanLimitStatus.ACTIVE },
+        data: {
+          totalRecords: {
+            increment: 1,
+          },
+        },
+      }),
+    ]);
 
-    await auditService.logAction({
-      req,
-      action: AuditLogAction.RECORD_UPLOAD,
-      status: AuditLogStatus.SUCCESS,
-      description: "Record uploaded successfully",
-      targetType: AuditLogTargetType.RECORD,
-      targetId: record.id,
-    });
+    await Promise.all([
+      auditService.logAction({
+        req,
+        action: AuditLogAction.RECORD_UPLOAD,
+        status: AuditLogStatus.SUCCESS,
+        description: "Record uploaded successfully",
+        targetType: AuditLogTargetType.RECORD,
+        targetId: record.id,
+      }),
 
-    redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`
-    );
-
+      redisService.deleteKeysByPattern(
+        `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`
+      ),
+    ]);
     res.status(201).json({
       message: "Record uploaded successfully",
       record,
@@ -329,7 +341,7 @@ export const getRecords = async (
       },
       records: records.map((record) => ({
         ...record,
-        downloadUrl: s3Service.getDownloadUrl(record.fileUrl),
+        downloadUrl: s3Service.getDownloadUrl(record.fileKey),
       })),
     };
 
@@ -407,7 +419,7 @@ export const getRecord = async (
       return;
     }
 
-    const downloadUrl = s3Service.getDownloadUrl(record.fileUrl);
+    const downloadUrl = s3Service.getDownloadUrl(record.fileKey);
 
     await auditService.logAction({
       req,

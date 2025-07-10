@@ -41,6 +41,8 @@ model User {
   AuditLog                  AuditLog[]
   EmergencySnapshot         EmergencySnapshot[]
   OCRResult                 OCRResult[]
+  Subscription              Subscription[]
+  PlanLimit                 PlanLimit[]
 }
 
 model OtpVerification {
@@ -76,7 +78,7 @@ model Record {
   type       RecordType
   language   String     @default("en")
   tags       String[]
-  fileUrl    String     @unique()
+  fileKey    String     @unique()
   fileName   String
   fileSize   Int
   mimeType   String
@@ -203,4 +205,53 @@ model OCRResult {
 
   @@index([ownerId])
   @@index([fileKey])
+}
+
+enum PlayType {
+  FREEMIUM
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Subscription {
+  id       String             @id @default(cuid())
+  planType PlayType
+  userId   String
+  status   SubscriptionStatus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  planLimit PlanLimit?
+
+  @@unique([userId, status])
+  @@index([userId])
+}
+
+enum PlanLimitStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model PlanLimit {
+  id             String @id @default(cuid())
+  totalRecords   Int
+  subscriptionId String @unique
+
+  status       PlanLimitStatus
+  subscription Subscription    @relation(fields: [subscriptionId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subscriptionId])
+  @@index([userId])
 }

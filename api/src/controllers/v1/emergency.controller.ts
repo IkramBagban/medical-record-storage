@@ -44,7 +44,7 @@ export const getEmergencyData = async (
         type: true,
         language: true,
         recordDate: true,
-        fileUrl: true,
+        fileKey: true,
       },
     });
 
@@ -65,7 +65,7 @@ export const getEmergencyData = async (
           type: r.type,
           language: r.language,
           recordDate: r.recordDate,
-          downloadUrl: s3Service.getDownloadUrl(r.fileUrl),
+          downloadUrl: s3Service.getDownloadUrl(r.fileKey),
         })),
       },
     });

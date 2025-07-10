@@ -849,7 +849,7 @@ describe("Records API", () => {
           type: "OTHER",
           language: "en",
           tags: [],
-          fileUrl: "test-key",
+          fileKey: "test-key",
           fileName: "test.pdf",
           fileSize: 1024,
           mimeType: "application/pdf",

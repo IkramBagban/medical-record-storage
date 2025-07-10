@@ -7,3 +7,7 @@ export interface IEmailOptions {
 export interface IEmailProvider {
   send({ to, subject, html }: IEmailOptions): Promise<void>;
 }
+
+export enum FeaturePermission {
+  UPLOAD_RECORD = "UPLOAD_RECORD",
+}

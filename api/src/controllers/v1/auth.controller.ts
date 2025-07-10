@@ -9,6 +9,9 @@ import {
   AuditLogAction,
   AuditLogStatus,
   AuditLogTargetType,
+  PlanLimitStatus,
+  SubscriptionStatus,
+  User,
 } from "@prisma/client";
 import { otpFacade } from "../../services/otp/otpFacade";
 
@@ -92,13 +95,34 @@ export const verifySignup = async (
       return;
     }
 
-    const user = await prisma.user.create({
-      data: { name, email, accountType, role },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-      },
+    let user: Pick<User, "id" | "email" | "role">;
+
+    user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: { name, email, accountType, role },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      await tx.subscription.create({
+        data: {
+          userId: createdUser.id,
+          planType: accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: createdUser.id,
+            },
+          },
+        },
+      });
+
+      return createdUser;
     });
 
     const token = generateToken(user);
