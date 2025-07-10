@@ -48,4 +48,4 @@ jobs:
           echo "API_URL=${{ secrets.API_URL }}" >> .env
 
       - name: Deploy to Lambda
-        run: pnpm serverless deploy
+        run: pnpm serverless deploy --key ${{ secrets.SERVERLESS_ACCESS_KEY }}
