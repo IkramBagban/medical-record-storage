@@ -21,7 +21,7 @@ export const ocrProcessor = async (event: any) => {
     throw new Error("Invalid S3 event format.");
   }
 
-  const key = s3Record.object.key;
+  const key = decodeURIComponent(s3Record.object.key);
 
   try {
     await processOcr(key);

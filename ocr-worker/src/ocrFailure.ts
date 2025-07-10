@@ -16,7 +16,7 @@ export const ocrFailureHandler = async (event: any) => {
 
   try {
     const response = await fetch(
-      `${process.env.API_URL}/v1/ocr/failure/${key}`,
+      `${process.env.API_URL}/v1/ocr/failure?fileKey=${encodeURIComponent(key)}`,
       {
         method: "PATCH",
       }
