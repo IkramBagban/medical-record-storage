@@ -1,0 +1,51 @@
+name: Deploy OCR Worker to Lambda
+
+on:
+  push:
+    branches:
+      - main 
+    paths:
+      - 'ocr-worker/**' 
+      - '.github/workflows/deploy-worker.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./ocr-worker
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23.6.0
+
+      - name: Install deps with pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.12.1
+      - run: pnpm install
+
+      - name: Prisma generate
+        run: pnpm prisma generate
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1 
+
+      - name: Create .env file from secrets
+        run: |
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "API_URL=${{ secrets.API_URL }}" >> .env
+
+      - name: Deploy to Lambda
+        run: pnpm serverless deploy
