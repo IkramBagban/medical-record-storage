@@ -96,4 +96,8 @@ resources:
                 Fn::GetAtt: [ OcrQueue, Arn ]
               Condition:
                 ArnLike:
-                  aws:SourceArn: arn:aws:s3:::${env:S3_BUCKET_NAME}
+                  aws:SourceArn:
+                    Fn::Join:
+                      - ""
+                      - - "arn:aws:s3:::"
+                        - ${env:S3_BUCKET_NAME}
