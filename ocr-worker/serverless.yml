@@ -9,6 +9,8 @@ plugins:
 package:
   individually: true
 
+frameworkVersion: '~4.17.1'
+
 provider:
   name: aws
   runtime: nodejs22.x
@@ -44,7 +46,7 @@ functions:
           batchSize: 1
 
   ocrFailureHandler:
-    handler: src/handler.ocrFailureHandler
+    handler: src/ocrFailure.ocrFailureHandler
     events:
       - sqs:
           arn:
