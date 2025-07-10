@@ -21,11 +21,7 @@ export const ocrProcessor = async (event: any) => {
     throw new Error("Invalid S3 event format.");
   }
 
-  const key = decodeURIComponent(s3Record.object.key.replace(/\+/g, " "));
-  console.log("Key:", {
-    key: s3Record.object.key,
-    decodeURIKey: key,
-  });
+  const key = s3Record.object.key;
 
   try {
     await processOcr(key);
@@ -57,6 +53,30 @@ export const ocrProcessor = async (event: any) => {
 };
 
 export const ocrFailureHandler = async (event: any) => {
-  console.log("Received failure event:", JSON.stringify(event, null, 2));
-  console.error("OCR processing failed.");
+  const record = event.Records[0];
+
+  let key: string | undefined;
+
+  try {
+    const s3Info = JSON.parse(record.body);
+    const s3Record = s3Info.Records?.[0]?.s3;
+    key = s3Record?.object?.key;
+    if (!key) throw new Error("Missing S3 key in DLQ event");
+  } catch (err) {
+    console.error("Failed to parse DLQ event:", err);
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/v1/ocr/failure/${key}`,
+      {
+        method: "PATCH",
+      }
+    );
+    const data = await response.json();
+    console.info("DLQ handler success:", data);
+  } catch (err) {
+    console.error("DLQ fetch to backend failed:", err);
+  }
 };
