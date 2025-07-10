@@ -3,9 +3,9 @@ name: Deploy OCR Worker to Lambda
 on:
   push:
     branches:
-      - main 
+      - main
     paths:
-      - 'ocr-worker/**' 
+      - 'ocr-worker/**'
       - '.github/workflows/deploy-worker.yml'
 
 jobs:
@@ -23,15 +23,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 23.6.0
+          node-version: 20
 
-      - name: Install deps with pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
           version: 9.12.1
-      - run: pnpm install
 
-      - name: Prisma generate
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate Prisma Client
         run: pnpm prisma generate
 
       - name: Configure AWS credentials
@@ -39,7 +41,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1 
+          aws-region: us-east-1
 
       - name: Create .env file from secrets
         run: |
@@ -47,5 +49,7 @@ jobs:
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "API_URL=${{ secrets.API_URL }}" >> .env
 
-      - name: Deploy to Lambda
-        run: pnpm serverless deploy --key ${{ secrets.SERVERLESS_ACCESS_KEY }}
+      - name: Deploy with Serverless using access key
+        env:
+          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+        run: pnpm exec serverless deploy
