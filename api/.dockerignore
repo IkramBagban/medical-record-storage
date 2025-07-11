@@ -1,0 +1,9 @@
+.env
+node_modules
+dist
+.env.test
+.env.example
+generated
+
+docker
+docker-compose.yml
