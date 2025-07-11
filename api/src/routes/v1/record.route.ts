@@ -5,8 +5,6 @@ import {
   getRecords,
   getRecord,
   deleteRecord,
-  ocrUpload,
-  ocrFailure,
 } from "../../controllers/v1/record.controller";
 import { enforcePlanLimit } from "../../middlewares/plan.middleware";
 import { FeaturePermission } from "../../services/email/types";
@@ -19,6 +17,4 @@ router.get("/", getRecords);
 router.get("/:id", getRecord);
 router.delete("/:id", deleteRecord);
 
-router.post("/ocr-upload", ocrUpload);
-router.post("/ocr-failure/:fileKey", ocrFailure);
 export default router;
