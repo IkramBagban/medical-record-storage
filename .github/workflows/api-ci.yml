@@ -5,8 +5,7 @@ on:
     branches: ['**'] 
     paths:
       - 'api/**'
-      - '.github/workflows/api.yml'
-      - 'docker/Dockerfile.prod'
+      - '.github/workflows/api-ci.yml'
       
   pull_request:
     branches: ['**']

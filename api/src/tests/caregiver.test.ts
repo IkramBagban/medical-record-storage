@@ -2,7 +2,14 @@ import request from "supertest";
 import app, { server } from "..";
 import { prisma } from "../utils/db";
 import { generateToken } from "../utils/jwt";
-import { AccountType, User, UserRole } from "@prisma/client";
+import {
+  AccountType,
+  PlanLimitStatus,
+  SubscriptionStatus,
+  User,
+  UserRole,
+} from "@prisma/client";
+import { cleanupAllTables } from "./helpers/common";
 
 describe("Caregiver API", () => {
   let patientToken: string;
@@ -68,6 +75,65 @@ describe("Caregiver API", () => {
     dependent = _dependent;
     anotherCaregiver = _anotherCaregiver;
 
+    await prisma.$transaction([
+      prisma.subscription.create({
+        data: {
+          userId: patient.id,
+          planType: patient.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: patient.id,
+            },
+          },
+        },
+      }),
+      prisma.subscription.create({
+        data: {
+          userId: caregiver.id,
+          planType: caregiver.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: caregiver.id,
+            },
+          },
+        },
+      }),
+      prisma.subscription.create({
+        data: {
+          userId: dependent.id,
+          planType: dependent.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: dependent.id,
+            },
+          },
+        },
+      }),
+      prisma.subscription.create({
+        data: {
+          userId: anotherCaregiver.id,
+          planType: anotherCaregiver.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: anotherCaregiver.id,
+            },
+          },
+        },
+      }),
+    ]);
+
     patientToken = generateToken({
       id: _patient.id,
       email: _patient.email,
@@ -94,9 +160,7 @@ describe("Caregiver API", () => {
   }, 30000);
 
   afterAll(async () => {
-    await prisma.record.deleteMany();
-    await prisma.caregiverRequest.deleteMany();
-    await prisma.user.deleteMany();
+    await cleanupAllTables();
     await prisma.$disconnect();
     await server.close();
   });
@@ -106,7 +170,7 @@ describe("Caregiver API", () => {
       it("when caregiver requests access to patient", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: patient.email,
             message: "I would like to help manage your medical records.",
@@ -133,7 +197,8 @@ describe("Caregiver API", () => {
       it("when caregiver requests access to dependent", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: dependent.email,
             message: "I would like to help manage your medical records.",
@@ -160,7 +225,7 @@ describe("Caregiver API", () => {
       it("when patient tries to create a request", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             email: caregiver.email,
             message: "Test message",
@@ -177,7 +242,7 @@ describe("Caregiver API", () => {
       it("when dependent tries to create a request", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${dependentToken}`)
+          .set("Cookie", `authToken=${dependentToken}`)
           .send({
             email: patient.email,
             message: "Test message",
@@ -194,7 +259,8 @@ describe("Caregiver API", () => {
       it("when caregiver tries to create a request for another caregiver", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: anotherCaregiver.email,
             message: "Test message",
@@ -211,7 +277,8 @@ describe("Caregiver API", () => {
       it("when caregiver tries to create a request for non-existent user", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: "nonexistent@test.com",
             message: "Test message",
@@ -225,7 +292,8 @@ describe("Caregiver API", () => {
       it("when caregiver tries to create a duplicate request", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: patient.email,
             message: "Duplicate request",
@@ -239,7 +307,8 @@ describe("Caregiver API", () => {
       it("when request body is invalid - invalid email format", async () => {
         const response = await request(app)
           .post("/api/v1/caregiver/request")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             email: "invalid-email-format",
             message: "Test message",
@@ -267,7 +336,8 @@ describe("Caregiver API", () => {
       it("when caregiver gets their sent requests", async () => {
         const response = await request(app)
           .get("/api/v1/caregiver/requests")
-          .set("Authorization", `Bearer ${caregiverToken}`);
+
+          .set("Cookie", `authToken=${caregiverToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
@@ -291,7 +361,7 @@ describe("Caregiver API", () => {
       it("when patient gets their received requests", async () => {
         const response = await request(app)
           .get("/api/v1/caregiver/requests")
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
@@ -317,7 +387,7 @@ describe("Caregiver API", () => {
       it("when dependent gets their received requests", async () => {
         const response = await request(app)
           .get("/api/v1/caregiver/requests")
-          .set("Authorization", `Bearer ${dependentToken}`);
+          .set("Cookie", `authToken=${dependentToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
@@ -367,7 +437,7 @@ describe("Caregiver API", () => {
       it("when patient approves a pending request", async () => {
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             requestId: approvalRequestId,
             status: "APPROVED",
@@ -414,7 +484,7 @@ describe("Caregiver API", () => {
 
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${testPatientToken}`)
+          .set("Cookie", `authToken=${testPatientToken}`)
           .send({
             requestId: testRequest.id,
             status: "REJECTED",
@@ -460,7 +530,7 @@ describe("Caregiver API", () => {
 
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${testDependentToken}`)
+          .set("Cookie", `authToken=${testDependentToken}`)
           .send({
             requestId: testRequest.id,
             status: "APPROVED",
@@ -502,7 +572,8 @@ describe("Caregiver API", () => {
 
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${caregiverToken}`)
+
+          .set("Cookie", `authToken=${caregiverToken}`)
           .send({
             requestId: testRequest.id,
             status: "APPROVED",
@@ -523,7 +594,7 @@ describe("Caregiver API", () => {
       it("when request does not exist", async () => {
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             requestId: "non-existent-id",
             status: "APPROVED",
@@ -537,7 +608,7 @@ describe("Caregiver API", () => {
       it("when request has already been processed", async () => {
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             requestId: approvalRequestId,
             status: "APPROVED",
@@ -554,7 +625,7 @@ describe("Caregiver API", () => {
       it("when request body is invalid - missing requestId", async () => {
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             status: "APPROVED",
           });
@@ -567,7 +638,7 @@ describe("Caregiver API", () => {
       it("when request body is invalid - missing status", async () => {
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send({
             requestId: approvalRequestId,
           });
@@ -604,7 +675,7 @@ describe("Caregiver API", () => {
 
         const response = await request(app)
           .patch("/api/v1/caregiver/approve")
-          .set("Authorization", `Bearer ${newPatientToken}`)
+          .set("Cookie", `authToken=${newPatientToken}`)
           .send({
             requestId: testRequest.id,
             status: "INVALID_STATUS",

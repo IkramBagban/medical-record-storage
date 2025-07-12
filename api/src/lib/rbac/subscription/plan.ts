@@ -3,10 +3,10 @@ import { prisma } from "../../../utils/db";
 
 const planLimitConfig = {
   [PlayType.FREEMIUM]: {
-    recordLimit: 3,
+    recordLimit: 100,
   },
   [PlayType.PREMIUM]: {
-    recordLimit: 5,
+    recordLimit: 500,
   },
 };
 

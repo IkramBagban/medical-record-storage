@@ -6,8 +6,7 @@ on:
       - main
     paths: 
       - 'api/**'
-      - '.github/workflows/api.yml'
-      - 'docker/Dockerfile.prod'
+      - '.github/workflows/api-cd.yml'
 
 jobs: 
   deploy:
@@ -76,5 +75,5 @@ jobs:
               -e SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
               -e SENDGRID_FROM_EMAIL="${{ secrets.SENDGRID_FROM_EMAIL }}" \
               -e REDIS_URL="${{ secrets.REDIS_URL }}" \
-              -p 3000:3000 \
+              -p 4000:3000 \
               ikrambagban/medical-record-api:${{ github.sha }}

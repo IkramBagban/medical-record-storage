@@ -7,8 +7,20 @@ export const testEmail = "ikrambagban.dev@gmail.com";
 export const testOtp = "123456";
 
 export const cleanupAuthTables = async () => {
-  await prisma.otpVerification.deleteMany();
-  await prisma.user.deleteMany();
+  await prisma.$executeRawUnsafe(`DO $$
+  DECLARE
+    tabname text;
+  BEGIN
+    -- Loop through all user-defined tables
+    FOR tabname IN
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+    LOOP
+      -- Dynamically build and execute TRUNCATE CASCADE
+      EXECUTE format('TRUNCATE TABLE "%I" CASCADE;', tabname);
+    END LOOP;
+  END $$;`);
 };
 
 export const cleanupRecordTables = async () => {
@@ -17,8 +29,17 @@ export const cleanupRecordTables = async () => {
 };
 
 export const cleanupAllTables = async () => {
-  await cleanupAuthTables();
-  await cleanupRecordTables();
+  await prisma.$transaction([
+    prisma.caregiverRequest.deleteMany(),
+    prisma.record.deleteMany(),
+    prisma.otpVerification.deleteMany(),
+    prisma.auditLog.deleteMany(),
+    prisma.oCRResult.deleteMany(),
+    prisma.planLimit.deleteMany(),
+    prisma.subscription.deleteMany(),
+    prisma.emergencySnapshot.deleteMany(),
+    prisma.user.deleteMany(),
+  ]);
 };
 
 export const createUserAndVerify = async () => {

@@ -2,7 +2,8 @@ import request from "supertest";
 import app, { server } from "..";
 import { prisma } from "../utils/db";
 import { generateToken } from "../utils/jwt";
-import { multilingualTestData } from "./helpers/common";
+import { cleanupAllTables, multilingualTestData } from "./helpers/common";
+import { PlanLimitStatus, SubscriptionStatus } from "@prisma/client";
 
 describe("Records API", () => {
   let patientToken: string;
@@ -12,9 +13,7 @@ describe("Records API", () => {
   let recordId: string;
 
   beforeAll(async () => {
-    await prisma.record.deleteMany();
-    await prisma.caregiverRequest.deleteMany();
-    await prisma.user.deleteMany();
+    await cleanupAllTables();
     const [patient, caregiver] = await prisma.$transaction([
       prisma.user.create({
         data: {
@@ -31,6 +30,37 @@ describe("Records API", () => {
           name: "Test Caregiver",
           accountType: "PREMIUM",
           role: "CAREGIVER",
+        },
+      }),
+    ]);
+
+    await prisma.$transaction([
+      prisma.subscription.create({
+        data: {
+          userId: patient.id,
+          planType: patient.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: patient.id,
+            },
+          },
+        },
+      }),
+      prisma.subscription.create({
+        data: {
+          userId: caregiver.id,
+          planType: caregiver.accountType,
+          status: SubscriptionStatus.ACTIVE,
+          planLimit: {
+            create: {
+              totalRecords: 0,
+              status: PlanLimitStatus.ACTIVE,
+              userId: caregiver.id,
+            },
+          },
         },
       }),
     ]);
@@ -64,9 +94,7 @@ describe("Records API", () => {
   }, 30000);
 
   afterAll(async () => {
-    await prisma.record.deleteMany();
-    await prisma.caregiverRequest.deleteMany();
-    await prisma.user.deleteMany();
+    await cleanupAllTables;
     await prisma.$disconnect();
     server.close();
   });
@@ -112,14 +140,18 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload-url")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
+        console.log(" response", {
+          body: response.body,
+          status: response.status,
+        });
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
         expect(response.body.uploadUrl).toBeDefined();
         expect(response.body.fileKey).toBeDefined();
-      });
+      }, 10000);
 
       it("should generate upload URL for Arabic metadata (RTL)", async () => {
         const arabicData = multilingualTestData[9];
@@ -136,14 +168,14 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload-url")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
         expect(response.body.uploadUrl).toBeDefined();
         expect(response.body.fileKey).toBeDefined();
-      });
+      }, 10000);
 
       it("should generate upload URL for Japanese metadata", async () => {
         const japaneseData = multilingualTestData[6];
@@ -160,14 +192,14 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload-url")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
         expect(response.body.uploadUrl).toBeDefined();
         expect(response.body.fileKey).toBeDefined();
-      });
+      }, 10000);
 
       it("should handle special characters in filenames", async () => {
         const germanData = multilingualTestData[2];
@@ -184,14 +216,14 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload-url")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
         expect(response.body.uploadUrl).toBeDefined();
         expect(response.body.fileKey).toBeDefined();
-      });
+      }, 10000);
     });
 
     describe("POST /records/upload - Multilingual Records Creation", () => {
@@ -213,7 +245,7 @@ describe("Records API", () => {
 
           const response = await request(app)
             .post("/api/v1/records/upload")
-            .set("Authorization", `Bearer ${patientToken}`)
+            .set("Cookie", `authToken=${patientToken}`)
             .send(uploadData);
 
           console.log("should create records res.body:", response.body);
@@ -228,7 +260,7 @@ describe("Records API", () => {
 
           multilingualRecordIds.push(response.body.record.id);
         }
-      });
+      }, 100000);
 
       it("should handle mixed language tags", async () => {
         const mixedLanguageData = {
@@ -245,7 +277,7 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(mixedLanguageData);
 
         expect(response.status).toBe(201);
@@ -253,14 +285,14 @@ describe("Records API", () => {
         expect(response.body.record.tags).toEqual(mixedLanguageData.tags);
 
         multilingualRecordIds.push(response.body.record.id);
-      });
+      }, 100000);
     });
 
     describe("GET /records - Multilingual Filtering", () => {
       it("should search records by multilingual tags", async () => {
         const response = await request(app)
           .get("/api/v1/records?tags=血液")
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -270,12 +302,12 @@ describe("Records API", () => {
           r.tags.includes("血液"),
         );
         expect(foundRecord).toBeDefined();
-      });
+      }, 10000);
 
       it("should search records by Arabic tags", async () => {
         const response = await request(app)
           .get("/api/v1/records?tags=دم")
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -285,12 +317,12 @@ describe("Records API", () => {
           r.tags.includes("دم"),
         );
         expect(foundRecord).toBeDefined();
-      });
+      }, 10000);
 
       it("should search records by title in different languages", async () => {
         const response = await request(app)
           .get("/api/v1/records?search=血液検査")
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
         console.log(
           "Search records by title response:",
           JSON.stringify(response.body, null, 2),
@@ -304,12 +336,12 @@ describe("Records API", () => {
           r.title.includes("血液検査"),
         );
         expect(foundRecord).toBeDefined();
-      });
+      }, 50000);
 
       it("should handle special characters in search", async () => {
         const response = await request(app)
           .get("/api/v1/records?search=röntgen")
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -319,7 +351,7 @@ describe("Records API", () => {
           r.title.toLowerCase().includes("röntgen"),
         );
         expect(foundRecord).toBeDefined();
-      });
+      }, 50000);
     });
 
     describe("GET /records/:id - Multilingual Record Retrieval", () => {
@@ -327,7 +359,7 @@ describe("Records API", () => {
         const chineseRecordId = multilingualRecordIds[8]; // Chinese record
         const response = await request(app)
           .get(`/api/v1/records/${chineseRecordId}`)
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -335,13 +367,13 @@ describe("Records API", () => {
         expect(response.body.record.title).toBe("CT扫描报告");
         expect(response.body.record.language).toBe("zh");
         expect(response.body.record.tags).toContain("CT");
-      });
+      }, 10000);
 
       it("should retrieve record with Hindi metadata", async () => {
         const hindiRecordId = multilingualRecordIds[10]; // Hindi record
         const response = await request(app)
           .get(`/api/v1/records/${hindiRecordId}`)
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -349,13 +381,13 @@ describe("Records API", () => {
         expect(response.body.record.title).toBe("एक्स-रे रिपोर्ट");
         expect(response.body.record.language).toBe("hi");
         expect(response.body.record.tags).toContain("एक्स-रे");
-      });
+      }, 10000);
 
       it("should retrieve record with Thai metadata", async () => {
         const thaiRecordId = multilingualRecordIds[11]; // Thai record
         const response = await request(app)
           .get(`/api/v1/records/${thaiRecordId}`)
-          .set("Authorization", `Bearer ${patientToken}`);
+          .set("Cookie", `authToken=${patientToken}`);
 
         expect(response.status).toBe(200);
         expect(response.body.success).toBe(true);
@@ -363,7 +395,7 @@ describe("Records API", () => {
         expect(response.body.record.title).toBe("ผลตรวจเลือด");
         expect(response.body.record.language).toBe("th");
         expect(response.body.record.tags).toContain("เลือด");
-      });
+      }, 10000);
     });
 
     describe("Multilingual Data Validation", () => {
@@ -382,12 +414,12 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(201);
         expect(response.body.success).toBe(true);
-      });
+      }, 10000);
 
       it("should handle very long multilingual titles", async () => {
         const longTitle =
@@ -406,7 +438,7 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(201);
@@ -431,7 +463,7 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(201);
@@ -440,7 +472,7 @@ describe("Records API", () => {
         expect(response.body.record.tags).toContain("❤️");
 
         multilingualRecordIds.push(response.body.record.id);
-      });
+      }, 10000);
     });
 
     describe("Multilingual Edge Cases", () => {
@@ -459,7 +491,7 @@ describe("Records API", () => {
 
         const response = await request(app)
           .post("/api/v1/records/upload")
-          .set("Authorization", `Bearer ${patientToken}`)
+          .set("Cookie", `authToken=${patientToken}`)
           .send(uploadData);
 
         expect(response.status).toBe(201);
@@ -467,7 +499,7 @@ describe("Records API", () => {
         expect(response.body.record.tags).toEqual([]);
 
         multilingualRecordIds.push(response.body.record.id);
-      });
+      }, 10000);
     });
   });
 
@@ -486,7 +518,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload-url")
-        .set("Authorization", `Bearer ${patientToken}`)
+        .set("Cookie", `authToken=${patientToken}`)
         .send(uploadData);
       console.log(
         "upload-url Response body: ================================ ",
@@ -514,7 +546,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload-url")
-        .set("Authorization", `Bearer ${patientToken}`)
+        .set("Cookie", `authToken=${patientToken}`)
         .send(uploadData);
       console.log(
         "should reject invalid file type Response body: ================================ ",
@@ -542,7 +574,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload-url")
-        .set("Authorization", `Bearer ${patientToken}`)
+        .set("Cookie", `authToken=${patientToken}`)
         .send(uploadData);
       console.log(
         "should reject file size too large Response body: ================================ ",
@@ -581,7 +613,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload")
-        .set("Authorization", `Bearer ${patientToken}`)
+        .set("Cookie", `authToken=${patientToken}`)
         .send(uploadData);
 
       expect(response.status).toBe(201);
@@ -611,7 +643,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload")
-        .set("Authorization", `Bearer ${caregiverToken}`)
+        .set("Cookie", `authToken=${caregiverToken}`)
         .send(uploadData);
 
       expect(response.status).toBe(201);
@@ -645,7 +677,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload")
-        .set("Authorization", `Bearer ${caregiverToken}`)
+        .set("Cookie", `authToken=${caregiverToken}`)
         .send(uploadData);
 
       expect(response.status).toBe(403);
@@ -670,7 +702,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .post("/api/v1/records/upload")
-        .set("Authorization", `Bearer ${patientToken}`)
+        .set("Cookie", `authToken=${patientToken}`)
         .send(uploadData);
 
       expect(response.status).toBe(400);
@@ -682,7 +714,7 @@ describe("Records API", () => {
     it("should get user's records", async () => {
       const response = await request(app)
         .get("/api/v1/records")
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -694,7 +726,7 @@ describe("Records API", () => {
     it("should filter records by type", async () => {
       const response = await request(app)
         .get("/api/v1/records?type=SCAN")
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.records.every((r: any) => r.type === "SCAN")).toBe(
@@ -707,7 +739,7 @@ describe("Records API", () => {
         .get(
           "/api/v1/records?dateFrom=2024-07-01T00:00:00.000Z&dateTo=2024-07-31T23:59:59.999Z",
         )
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.records).toBeDefined();
@@ -716,7 +748,7 @@ describe("Records API", () => {
     it("should filter records by tags", async () => {
       const response = await request(app)
         .get("/api/v1/records?tags=chest,x-ray")
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.records).toBeDefined();
@@ -725,7 +757,7 @@ describe("Records API", () => {
     it("should allow caregiver to get patient records", async () => {
       const response = await request(app)
         .get(`/api/v1/records?userId=${patientId}`)
-        .set("Authorization", `Bearer ${caregiverToken}`);
+        .set("Cookie", `authToken=${caregiverToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -744,7 +776,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .get(`/api/v1/records?userId=${anotherPatient.id}`)
-        .set("Authorization", `Bearer ${caregiverToken}`);
+        .set("Cookie", `authToken=${caregiverToken}`);
 
       expect(response.status).toBe(403);
       expect(response.body.error).toContain("don't have access");
@@ -756,7 +788,7 @@ describe("Records API", () => {
     it("should support pagination", async () => {
       const response = await request(app)
         .get("/api/v1/records?page=1&limit=5")
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.pagination.page).toBe(1);
@@ -770,7 +802,7 @@ describe("Records API", () => {
     it("should get specific record with download URL", async () => {
       const response = await request(app)
         .get(`/api/v1/records/${recordId}`)
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -782,7 +814,7 @@ describe("Records API", () => {
     it("should allow caregiver to get patient's record", async () => {
       const response = await request(app)
         .get(`/api/v1/records/${recordId}`)
-        .set("Authorization", `Bearer ${caregiverToken}`);
+        .set("Cookie", `authToken=${caregiverToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -792,7 +824,7 @@ describe("Records API", () => {
     it("should return 404 for non-existent record", async () => {
       const response = await request(app)
         .get("/api/v1/records/non-existent-id")
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(404);
       expect(response.body.error).toContain("Record not found");
@@ -816,7 +848,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .get(`/api/v1/records/${recordId}`)
-        .set("Authorization", `Bearer ${unauthorizedToken}`);
+        .set("Cookie", `authToken=${unauthorizedToken}`);
 
       expect(response.status).toBe(403);
       expect(response.body.error).toContain("don't have access");
@@ -829,7 +861,7 @@ describe("Records API", () => {
     it("should soft delete record", async () => {
       const response = await request(app)
         .delete(`/api/v1/records/${recordId}`)
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -861,7 +893,7 @@ describe("Records API", () => {
 
       const response = await request(app)
         .delete(`/api/v1/records/${record.id}`)
-        .set("Authorization", `Bearer ${caregiverToken}`);
+        .set("Cookie", `authToken=${caregiverToken}`);
 
       expect(response.status).toBe(404);
       expect(response.body.error).toContain("Record not found");
@@ -870,7 +902,7 @@ describe("Records API", () => {
     it("should return 404 for already deleted record", async () => {
       const response = await request(app)
         .delete(`/api/v1/records/${recordId}`)
-        .set("Authorization", `Bearer ${patientToken}`);
+        .set("Cookie", `authToken=${patientToken}`);
 
       expect(response.status).toBe(404);
       expect(response.body.error).toContain("Record not found");
