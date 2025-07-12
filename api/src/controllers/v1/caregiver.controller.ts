@@ -23,7 +23,7 @@ import { redisService } from "../../services/redis";
 export const getCaregiverRequests = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user!.id;
@@ -117,7 +117,7 @@ export const getCaregiverRequests = async (
 export const requestCaregiverAccess = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = caregiverRequestSchema.safeParse(req.body);
@@ -183,10 +183,10 @@ export const requestCaregiverAccess = async (
     });
 
     await redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${req.user!.id}*`
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${req.user!.id}*`,
     );
     await redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patient.id}*`
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patient.id}*`,
     );
     res.status(201).json({
       message: "Caregiver access request sent successfully",
@@ -211,7 +211,7 @@ export const requestCaregiverAccess = async (
 export const approveCaregiverRequest = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = approveCaregiverSchema.safeParse(req.body);
@@ -276,10 +276,10 @@ export const approveCaregiverRequest = async (
     });
 
     await redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${updatedRequest.caregiver.id}`
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${updatedRequest.caregiver.id}`,
     );
     await redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patientId}*`
+      `${RedisKeysPrefix.CAREGIVER_REQUEST_LIST}:${patientId}*`,
     );
     res.status(200).json({
       message: `Caregiver request ${status.toLowerCase()} successfully`,

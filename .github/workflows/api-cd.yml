@@ -31,9 +31,9 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./docker/Dockerfile.prod
+        with: 
+          context: ./api
+          file: ./api/docker/Dockerfile.prod
           push: true
           tags: ikrambagban/medical-record-api:${{ github.sha }}
       
@@ -42,27 +42,29 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }} 
+          username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }} 
 
           script: |
             docker pull ikrambagban/medical-record-api:${{ github.sha }}
-            docker kill medical-record-api
-            docker rm medical-record-api
+
+            docker stop medical-record-api || true
+            docker rm medical-record-api || true
+
             docker run -d --restart always \
+              --name medical-record-api \
               -e AWS_ACCESS_KEY_ID=${{secrets.AWS_ACCESS_KEY_ID}} \
               -e AWS_SECRET_ACCESS_KEY=${{secrets.AWS_SECRET_ACCESS_KEY}} \
               -e AWS_REGION=${{secrets.AWS_REGION}} \
               -e S3_BUCKET_NAME=${{secrets.S3_BUCKET_NAME}} \
               -e CLOUDFRONT_DISTRIBUTION_URL=${{secrets.CLOUDFRONT_DISTRIBUTION_URL}} \
-
               -e RESEND_FROM_EMAIL=${{secrets.RESEND_FROM_EMAIL}} \
               -e RESEND_API_KEY=${{secrets.RESEND_API_KEY}} \
               -e NODE_ENV=${{secrets.NODE_ENV}} \
-
+              -e JWT_SECRET=${{secrets.JWT_SECRET}} \
               -e DATABASE_URL=${{secrets.DATABASE_URL}} \
               -e SENDGRID_API_KEY=${{secrets.SENDGRID_API_KEY}} \
               -e SENDGRID_FROM_EMAIL=${{secrets.SENDGRID_FROM_EMAIL}} \
               -e REDIS_URL=${{secrets.REDIS_URL}} \
-              --name medical-record-api \
-            ikrambagban/medical-record-api:${{ github.sha }}
+              -p 3000:3000 \
+              ikrambagban/medical-record-api:${{ github.sha }}

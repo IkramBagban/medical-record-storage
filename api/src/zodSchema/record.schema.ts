@@ -15,7 +15,7 @@ export const uploadRecordSchema = z.object({
     .string()
     .length(
       2,
-      "Invalid language code. Should use ISO 639-1(i.e 'en', 'hi', 'fr', etc) format."
+      "Invalid language code. Should use ISO 639-1(i.e 'en', 'hi', 'fr', etc) format.",
     )
     .optional()
     .default("en"),

@@ -9,4 +9,3 @@ export const approveCaregiverSchema = z.object({
   requestId: z.string(),
   status: z.enum(["APPROVED", "REJECTED"]),
 });
-    

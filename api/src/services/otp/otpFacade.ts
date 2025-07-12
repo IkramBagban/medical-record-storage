@@ -53,7 +53,7 @@ export class OtpServiceFacade {
 
   async verifyOtp(
     email: string,
-    otp: string
+    otp: string,
   ): Promise<{ isValid: boolean; message: string }> {
     const otpKey = `${RedisKeysPrefix.OTP}:${email}`;
     const verifyKey = `${RedisKeysPrefix.OTP_VERIFY}:${email}`;

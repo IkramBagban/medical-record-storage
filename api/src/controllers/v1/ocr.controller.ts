@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import {
-
   ocrUploadSchema,
   OcrFailureSchema,
 } from "../../zodSchema/record.schema";
@@ -21,7 +20,7 @@ import { allowedMimeTypes } from "../../utils/constants";
 export const getOcrResults = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user!.id;
@@ -70,7 +69,7 @@ export const getOcrResults = async (
 export const ocrUpload = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = ocrUploadSchema.safeParse(req.body);
@@ -85,7 +84,7 @@ export const ocrUpload = async (
     if (!allowedMimeTypes.includes(mimeType)) {
       throwError(
         "Invalid file type. Only images, PDFs, and text files are allowed",
-        400
+        400,
       );
       return;
     }
@@ -140,7 +139,7 @@ export const ocrUpload = async (
 export const ocrFailure = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     console.log("Received OCR failure request:", req.query);
@@ -160,7 +159,9 @@ export const ocrFailure = async (
       },
     });
 
-    res.status(200).json({ message: `OCR failed for ${decodeURIComponent(fileKey)}` });
+    res
+      .status(200)
+      .json({ message: `OCR failed for ${decodeURIComponent(fileKey)}` });
   } catch (error) {
     next(error);
   }

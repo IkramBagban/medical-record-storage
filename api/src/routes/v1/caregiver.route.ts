@@ -13,12 +13,15 @@ router.get("/requests", getCaregiverRequests);
 router.post(
   "/request",
   enforceRole([UserRole.CAREGIVER], "Only caregivers can request access"),
-  requestCaregiverAccess
+  requestCaregiverAccess,
 );
 router.patch(
   "/approve",
-  enforceRole([UserRole.PATIENT, UserRole.DEPENDENT], "Only patients and dependents can approve requests"),
-  approveCaregiverRequest
+  enforceRole(
+    [UserRole.PATIENT, UserRole.DEPENDENT],
+    "Only patients and dependents can approve requests",
+  ),
+  approveCaregiverRequest,
 );
 
 export default router;

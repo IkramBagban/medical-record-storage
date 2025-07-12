@@ -18,7 +18,7 @@ import { otpFacade } from "../../services/otp/otpFacade";
 export const sendSignupOtp = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const schema = z.object({ email: z.string().email() });
@@ -35,7 +35,7 @@ export const sendSignupOtp = async (
     if (existingUser) {
       throwError(
         "Email already in use. Please login or use a different email.",
-        409
+        409,
       );
       return;
     }
@@ -71,7 +71,7 @@ export const sendSignupOtp = async (
 export const verifySignup = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = signupSchema.safeParse(req.body);
@@ -157,7 +157,7 @@ export const verifySignup = async (
 export const sendLoginOtp = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const schema = z.object({ email: z.string().email() });
@@ -206,7 +206,7 @@ export const sendLoginOtp = async (
 export const verifyLogin = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = verifyOtpSchema.safeParse(req.body);
@@ -217,10 +217,8 @@ export const verifyLogin = async (
 
     const { email, otp } = result.data;
 
-  
-
     // const isValid = await otpService.verifyOtp(otp, otpRecord.otp);
-    const {isValid, message} = await otpFacade.verifyOtp(email, otp);
+    const { isValid, message } = await otpFacade.verifyOtp(email, otp);
     if (!isValid) {
       throwError(message, 400);
       return;
@@ -242,13 +240,12 @@ export const verifyLogin = async (
       return;
     }
 
-
     const token = generateToken({
       id: user.id,
       email: user.email,
       role: user.role,
     });
-    
+
     await auditService.logAction({
       req,
       action: AuditLogAction.LOGIN_VERIFIED,

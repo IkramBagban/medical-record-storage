@@ -115,7 +115,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(201);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver access request sent successfully"
+          "Caregiver access request sent successfully",
         );
         expect(response.body).toHaveProperty(
           "request",
@@ -123,7 +123,7 @@ describe("Caregiver API", () => {
             id: expect.any(String),
             caregiverId: caregiver.id,
             patientId: patient.id,
-          })
+          }),
         );
         expect(response.body).toHaveProperty("success", true);
 
@@ -142,7 +142,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(201);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver access request sent successfully"
+          "Caregiver access request sent successfully",
         );
         expect(response.body).toHaveProperty(
           "request",
@@ -150,7 +150,7 @@ describe("Caregiver API", () => {
             id: expect.any(String),
             caregiverId: caregiver.id,
             patientId: dependent.id,
-          })
+          }),
         );
         expect(response.body).toHaveProperty("success", true);
       });
@@ -169,7 +169,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty(
           "error",
-          "Only caregivers can request access"
+          "Only caregivers can request access",
         );
         expect(response.body).toHaveProperty("success", false);
       });
@@ -186,7 +186,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty(
           "error",
-          "Only caregivers can request access"
+          "Only caregivers can request access",
         );
         expect(response.body).toHaveProperty("success", false);
       });
@@ -203,7 +203,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(400);
         expect(response.body).toHaveProperty(
           "error",
-          "Can only request access to patients or dependents"
+          "Can only request access to patients or dependents",
         );
         expect(response.body).toHaveProperty("success", false);
       });
@@ -272,7 +272,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver requests retrieved successfully"
+          "Caregiver requests retrieved successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body).toHaveProperty("requests");
@@ -296,7 +296,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver requests retrieved successfully"
+          "Caregiver requests retrieved successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body).toHaveProperty("requests");
@@ -322,7 +322,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver requests retrieved successfully"
+          "Caregiver requests retrieved successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body).toHaveProperty("requests");
@@ -345,7 +345,6 @@ describe("Caregiver API", () => {
 
     //  to avoid the unique constraint issue
     beforeAll(async () => {
-
       await prisma.caregiverRequest.deleteMany({
         where: {
           caregiverId: anotherCaregiver.id,
@@ -377,7 +376,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver request approved successfully"
+          "Caregiver request approved successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body).toHaveProperty("request");
@@ -389,7 +388,6 @@ describe("Caregiver API", () => {
       });
 
       it("when patient rejects a pending request", async () => {
-
         const testPatient = await prisma.user.create({
           data: {
             email: "testpatient2@test.com",
@@ -425,7 +423,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver request rejected successfully"
+          "Caregiver request rejected successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body.request).toHaveProperty("status", "REJECTED");
@@ -471,7 +469,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty(
           "message",
-          "Caregiver request approved successfully"
+          "Caregiver request approved successfully",
         );
         expect(response.body).toHaveProperty("success", true);
         expect(response.body.request).toHaveProperty("status", "APPROVED");
@@ -513,7 +511,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(403);
         expect(response.body).toHaveProperty(
           "error",
-          "Only patients and dependents can approve requests"
+          "Only patients and dependents can approve requests",
         );
         expect(response.body).toHaveProperty("success", false);
 
@@ -548,7 +546,7 @@ describe("Caregiver API", () => {
         expect(response.status).toBe(400);
         expect(response.body).toHaveProperty(
           "error",
-          "Request has already been processed"
+          "Request has already been processed",
         );
         expect(response.body).toHaveProperty("success", false);
       });

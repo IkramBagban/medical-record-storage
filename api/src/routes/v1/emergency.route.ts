@@ -15,7 +15,7 @@ router.post(
   "/generate",
   authMiddleware,
   enforceRole([UserRole.PATIENT, UserRole.DEPENDENT]),
-  generateEmergencySnapshot
+  generateEmergencySnapshot,
 );
 
 export default router;

@@ -35,7 +35,10 @@ export const enforceRole = (requiredRoles: UserRole[], error?: string) => {
       console.log(`Required role: ${requiredRoles}`);
 
       if (!rbac.hasRole(role as UserRole, requiredRoles)) {
-        throwError(error || "Forbidden: You do not have the required role.", 403);
+        throwError(
+          error || "Forbidden: You do not have the required role.",
+          403,
+        );
         return;
       }
 

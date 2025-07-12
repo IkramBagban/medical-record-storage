@@ -12,6 +12,6 @@ router.use("/v1/auth", authRoutes);
 router.use("/v1/records", authMiddleware, recordRoutes);
 router.use("/v1/caregiver", authMiddleware, caregiverRoutes);
 router.use("/v1/emergency", emergencyRoutes);
-router.use("/v1/ocr",  ocrRoutes);
+router.use("/v1/ocr", ocrRoutes);
 
 export default router;

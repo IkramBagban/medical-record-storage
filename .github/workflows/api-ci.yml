@@ -40,8 +40,8 @@ jobs:
       - name: Check Formatting
         run: pnpm run format:check
 
-      - name: Run Linter
-        run: pnpm run lint
+      - name: Check Linting
+        run: pnpm run lint:check
 
       - name: Run Tests
         run: pnpm run test

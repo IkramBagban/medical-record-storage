@@ -13,9 +13,10 @@
     "test:caregiver": "jest src/tests/caregiver.test.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --ext .ts"
+    "format:fix": "prettier --write .",
+    "lint:check": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix"
   },
   "keywords": [],
   "author": "",

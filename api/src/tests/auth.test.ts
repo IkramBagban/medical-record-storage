@@ -26,7 +26,7 @@ describe("Signup OTP Flow", () => {
         .send({ email: testEmail });
       console.log(
         "signup/send-otp Response body: ================================ ",
-        res.body
+        res.body,
       );
 
       expect(res.statusCode).toBe(200);
@@ -40,7 +40,7 @@ describe("Signup OTP Flow", () => {
           expiresAt: { gt: new Date() },
         },
       });
-      console.log('otpRecord: ', otpRecord);
+      console.log("otpRecord: ", otpRecord);
       expect(otpRecord).toBeTruthy();
     });
 
@@ -82,7 +82,7 @@ describe("Signup OTP Flow", () => {
       expect(res.body).toHaveProperty("success", true);
       expect(res.body).toHaveProperty(
         "message",
-        "OTP sent to email again. Please check your inbox."
+        "OTP sent to email again. Please check your inbox.",
       );
     });
 
@@ -269,7 +269,7 @@ describe("Login OTP Flow", () => {
 
       console.log(
         "login/login send-otp Response body: ================================ ",
-        res.body
+        res.body,
       );
       expect(res.statusCode).toBe(200);
       expect(res.body).toHaveProperty("success", true);

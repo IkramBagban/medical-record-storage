@@ -21,13 +21,13 @@ const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
 export const getEmergencyData = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { qrToken } = req.params;
 
     const snapshot = await prisma.emergencySnapshot.findUnique({
-      where: { qrToken }
+      where: { qrToken },
     });
 
     if (!snapshot) {
@@ -85,7 +85,7 @@ export const getEmergencyData = async (
 export const generateEmergencySnapshot = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = generateEmergencySnapshotSchema.safeParse(req.body);
@@ -111,7 +111,7 @@ export const generateEmergencySnapshot = async (
     if (unauthorized.length > 0) {
       throwError(
         "You can only include your own records in the emergency snapshot",
-        403
+        403,
       );
       return;
     }

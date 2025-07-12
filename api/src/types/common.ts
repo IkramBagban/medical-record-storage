@@ -18,6 +18,6 @@ export enum RedisKeysPrefix {
 
 export const CACHE_TTL = {
   RECORD: 900,
-  RECORDS_LIST: 900, 
-  CAREGIVER_ACCESS: 900, 
+  RECORDS_LIST: 900,
+  CAREGIVER_ACCESS: 900,
 };

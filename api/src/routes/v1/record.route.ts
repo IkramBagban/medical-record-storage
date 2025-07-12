@@ -11,8 +11,16 @@ import { FeaturePermission } from "../../services/email/types";
 
 const router = express.Router();
 
-router.post("/upload-url", enforcePlanLimit(FeaturePermission.UPLOAD_RECORD), getUploadUrl);
-router.post("/upload", enforcePlanLimit(FeaturePermission.UPLOAD_RECORD), uploadRecord);
+router.post(
+  "/upload-url",
+  enforcePlanLimit(FeaturePermission.UPLOAD_RECORD),
+  getUploadUrl,
+);
+router.post(
+  "/upload",
+  enforcePlanLimit(FeaturePermission.UPLOAD_RECORD),
+  uploadRecord,
+);
 router.get("/", getRecords);
 router.get("/:id", getRecord);
 router.delete("/:id", deleteRecord);

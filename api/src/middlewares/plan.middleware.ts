@@ -7,7 +7,7 @@ export const plan = new Plan();
 
 export const enforcePlanLimit = (
   featurePermission: FeaturePermission,
-  errorMessage?: string
+  errorMessage?: string,
 ) => {
   return async (req: ExtendedRequest, res: Response, next: NextFunction) => {
     console.log("Enforcing plan limit for feature:", featurePermission);

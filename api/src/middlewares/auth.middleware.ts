@@ -7,7 +7,7 @@ import { throwError } from "../utils/error";
 export const authMiddleware = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const authHeader = req.headers.authorization;
 

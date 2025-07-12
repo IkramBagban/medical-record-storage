@@ -37,7 +37,7 @@ export class EmailService {
   async sendEmail(
     to: string,
     subject: string,
-    template: string
+    template: string,
   ): Promise<void> {
     // if (!process.env.SENDGRID_FROM_EMAIL) {
     //   throw new Error(
@@ -46,7 +46,7 @@ export class EmailService {
     // }
     if (!to || !subject || !template) {
       throw new Error(
-        "To, subject, and template are required to send an email."
+        "To, subject, and template are required to send an email.",
       );
     }
     const msg = {

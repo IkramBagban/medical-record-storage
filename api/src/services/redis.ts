@@ -38,7 +38,7 @@ export class RedisService {
 
     if (!config.REDIS_URL && !process.env.REDIS_URL) {
       console.info(
-        "No REDIS_URL provided. Using default redis://localhost:6379"
+        "No REDIS_URL provided. Using default redis://localhost:6379",
       );
     }
 
@@ -63,7 +63,7 @@ export class RedisService {
   async set(
     key: string,
     value: any,
-    options?: { EX?: number; json?: boolean }
+    options?: { EX?: number; json?: boolean },
   ): Promise<void> {
     try {
       const storeValue =
@@ -78,7 +78,7 @@ export class RedisService {
 
   async get<T = string>(
     key: string,
-    options?: { json?: boolean }
+    options?: { json?: boolean },
   ): Promise<T | string | null> {
     try {
       const value = await this.client.get(key);
@@ -124,7 +124,7 @@ export class RedisService {
         console.log(`Deleting keys: ${keys.join(", ")}`);
         const deletedCount = await this.client.del(keys);
         console.log(
-          `Deleted ${deletedCount} keys matching pattern "${pattern}"`
+          `Deleted ${deletedCount} keys matching pattern "${pattern}"`,
         );
         totalDeleted += keys.length;
       }
@@ -134,7 +134,7 @@ export class RedisService {
     }
 
     console.log(
-      `🧹 Deleted ${totalDeleted} keys matching pattern "${pattern}"`
+      `🧹 Deleted ${totalDeleted} keys matching pattern "${pattern}"`,
     );
   }
 
