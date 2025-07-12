@@ -9,9 +9,8 @@ import {
   AuditLogTargetType,
 } from "@prisma/client";
 import { auditService } from "../../services/audit";
-import { customAlphabet } from "nanoid";
 import { generateEmergencySnapshotSchema } from "../../zodSchema/emergency.schema";
-const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 10);
+import { v4 as uuidv4 } from "uuid";
 
 export const getEmergencyData = async (
   req: Request,
@@ -111,7 +110,7 @@ export const generateEmergencySnapshot = async (
       return;
     }
 
-    const qrToken = nanoid();
+    const qrToken = uuidv4();
 
     const snapshot = await prisma.emergencySnapshot.create({
       data: {

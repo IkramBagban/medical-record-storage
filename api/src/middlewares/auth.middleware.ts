@@ -9,17 +9,17 @@ export const authMiddleware = async (
   res: Response,
   next: NextFunction,
 ) => {
-  const authHeader = req.headers.authorization;
-
   try {
-    if (!authHeader?.startsWith("Bearer ")) {
+    const token = req.cookies.authToken;
+
+    if (!token) {
       throwError("No token provided.", 401);
       return;
     }
 
-    const token = authHeader.split(" ")[1];
     const decoded = verifyToken(token) as { id: string };
     console.log("Decoded token:", decoded);
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
@@ -32,6 +32,7 @@ export const authMiddleware = async (
     req.user = user;
     next();
   } catch (err) {
+    res.clearCookie("authToken");
     next(err);
   }
 };

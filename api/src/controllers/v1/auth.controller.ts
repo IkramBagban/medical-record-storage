@@ -14,6 +14,7 @@ import {
   User,
 } from "@prisma/client";
 import { otpFacade } from "../../services/otp/otpFacade";
+import { COOKIE_OPTIONS } from "../../utils/constants";
 
 export const sendSignupOtp = async (
   req: Request,
@@ -45,7 +46,7 @@ export const sendSignupOtp = async (
     await auditService.logAction({
       req,
       action: AuditLogAction.SIGNUP_OTP_SENT,
-      status: AuditLogStatus.FAILURE,
+      status: AuditLogStatus.SUCCESS,
       description: "OTP sent",
       targetType: AuditLogTargetType.USER,
       targetId: req.body.email,
@@ -126,6 +127,9 @@ export const verifySignup = async (
     });
 
     const token = generateToken(user);
+
+    res.cookie("authToken", token, COOKIE_OPTIONS);
+
     await auditService.logAction({
       req,
       action: AuditLogAction.SIGNUP_VERIFIED,
@@ -136,7 +140,6 @@ export const verifySignup = async (
     });
 
     res.status(201).json({
-      token,
       message: "User created successfully",
       success: true,
     });
@@ -217,7 +220,6 @@ export const verifyLogin = async (
 
     const { email, otp } = result.data;
 
-    // const isValid = await otpService.verifyOtp(otp, otpRecord.otp);
     const { isValid, message } = await otpFacade.verifyOtp(email, otp);
     if (!isValid) {
       throwError(message, 400);
@@ -246,6 +248,8 @@ export const verifyLogin = async (
       role: user.role,
     });
 
+    res.cookie("authToken", token, COOKIE_OPTIONS);
+
     await auditService.logAction({
       req,
       action: AuditLogAction.LOGIN_VERIFIED,
@@ -257,7 +261,6 @@ export const verifyLogin = async (
 
     res.status(200).json({
       message: "Logged in successfully",
-      token,
       success: true,
     });
   } catch (err) {

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { rateLimit } from "express-rate-limit";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { ExtendedRequest } from "./types/common";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ const limiter = rateLimit({
 app.use(limiter);
 app.set("trust proxy", process.env.NODE_ENV === "production"); // if usin a reverse proxy
 app.use(express.json());
+app.use(cookieParser());
 app.use("/api", v1Routes);
 app.get("/api/v1/me", authMiddleware, (req: ExtendedRequest, res: Response) => {
   res.json({
