@@ -1,0 +1,47 @@
+name: API Build and Test
+
+on:
+  push:
+    branches: ['**'] 
+    paths:
+      - 'api/**'
+      - '.github/workflows/api.yml'
+      - 'docker/Dockerfile.prod'
+      
+  pull_request:
+    branches: ['**']
+    paths:
+      - 'api/**'
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./api
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.12.1
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Check Formatting
+        run: pnpm run format:check
+
+      - name: Run Linter
+        run: pnpm run lint
+
+      - name: Run Tests
+        run: pnpm run test
