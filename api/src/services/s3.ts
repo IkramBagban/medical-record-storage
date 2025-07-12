@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuidv4 } from "uuid";
 
@@ -42,6 +47,48 @@ class S3Service {
   generateFileKey(userId: string, fileName: string): string {
     const fileExt = fileName.split(".").pop();
     return `medical-records/${userId}/${uuidv4()}.${fileExt}`;
+  }
+
+  async verifyFileExists(key: string): Promise<boolean> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+      await this.s3Client.send(command);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async getFileSize(key: string): Promise<number> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+      const response = await this.s3Client.send(command);
+      return response.ContentLength || 0;
+    } catch (error) {
+      throw new Error(
+        `Failed to get file size: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
+  async deleteFile(key: string): Promise<void> {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+      await this.s3Client.send(command);
+    } catch (error) {
+      throw new Error(
+        `Failed to delete file: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }
 }
 

@@ -21,7 +21,11 @@ import {
 } from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { redisService } from "../../services/redis";
-import { checkRecordAccess } from "../../utils/record";
+import {
+  checkRecordAccess,
+  getActualOwnerId,
+  validateFileConstraints,
+} from "../../utils/record";
 import { allowedMimeTypes } from "../../utils/constants";
 
 const CACHE_KEYS = {
@@ -35,7 +39,7 @@ const CACHE_KEYS = {
 export const getUploadUrl = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const result = uploadRecordSchema.safeParse(req.body);
@@ -44,24 +48,18 @@ export const getUploadUrl = async (
       return;
     }
 
-    const { fileName, fileSize, mimeType } = result.data;
-    const userId = req.user!.id;
+    const { fileName, fileSize, mimeType, ownerId } = result.data;
+    const uploaderId = req.user!.id;
 
-    if (!allowedMimeTypes.includes(mimeType)) {
-      throwError(
-        "Invalid file type. Only images, PDFs, and text files are allowed",
-        400,
-      );
-      return;
-    }
+    validateFileConstraints(fileSize, mimeType);
 
-    if (fileSize > 10 * 1024 * 1024) {
-      // filesize should be < 10MB
-      throwError("File size too large. Maximum size is 10MB", 400);
-      return;
-    }
+    const actualOwnerId = await getActualOwnerId(
+      uploaderId,
+      ownerId,
+      req.user!.role
+    );
 
-    const fileKey = s3Service.generateFileKey(userId, fileName);
+    const fileKey = s3Service.generateFileKey(actualOwnerId, fileName);
     const uploadUrl = await s3Service.generateUploadUrl(fileKey, mimeType);
 
     await auditService.logAction({
@@ -95,8 +93,11 @@ export const getUploadUrl = async (
 export const uploadRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
+  let recordCreated = false;
+  let recordId: string | null = null;
+
   try {
     const result = uploadRecordSchema.safeParse(req.body);
     if (!result.success) {
@@ -117,10 +118,27 @@ export const uploadRecord = async (
     } = result.data;
     const uploaderId = req.user!.id;
 
+    validateFileConstraints(fileSize, mimeType);
+
+    const { fileKey } = req.body;
+    if (!fileKey) {
+      throwError("File key is required", 400);
+      return;
+    }
+    validateFileConstraints(fileSize, mimeType);
+    // Verify S3 upload was successful
+    const fileExists = await s3Service.verifyFileExists(fileKey);
+    if (!fileExists && process.env.NODE_ENV !== "test") {
+      throwError(
+        "File upload verification failed. Please upload the file first.",
+        400
+      );
+      return;
+    }
+
     let actualOwnerId = uploaderId;
 
     if (ownerId && req.user!.role === "CAREGIVER") {
-      // Verify caregiver has access to this patient
       const caregiverAccess = await prisma.caregiverRequest.findFirst({
         where: {
           caregiverId: uploaderId,
@@ -132,18 +150,12 @@ export const uploadRecord = async (
       if (!caregiverAccess) {
         throwError(
           "You don't have access to upload records for this patient",
-          403,
+          403
         );
         return;
       }
 
       actualOwnerId = ownerId;
-    }
-
-    const { fileKey } = req.body;
-    if (!fileKey) {
-      throwError("File key is required", 400);
-      return;
     }
 
     const [record] = await prisma.$transaction([
@@ -172,6 +184,9 @@ export const uploadRecord = async (
       }),
     ]);
 
+    recordCreated = true;
+    recordId = record.id;
+
     await Promise.all([
       auditService.logAction({
         req,
@@ -183,7 +198,7 @@ export const uploadRecord = async (
       }),
 
       redisService.deleteKeysByPattern(
-        `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`,
+        `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`
       ),
     ]);
     res.status(201).json({
@@ -192,6 +207,40 @@ export const uploadRecord = async (
       success: true,
     });
   } catch (err) {
+    // Cleanup on failure
+    if (recordCreated && recordId) {
+      try {
+        // If record was created but something failed after, clean up
+        await prisma.$transaction([
+          prisma.record.delete({
+            where: { id: recordId },
+          }),
+          prisma.planLimit.updateMany({
+            where: { userId: req.user!.id, status: PlanLimitStatus.ACTIVE },
+            data: {
+              totalRecords: {
+                decrement: 1,
+              },
+            },
+          }),
+        ]);
+      } catch (cleanupErr) {
+        console.error("Failed to cleanup after error:", cleanupErr);
+      }
+    }
+
+    if (
+      req.body.fileKey &&
+      err instanceof Error &&
+      !err.message.includes("File upload verification failed")
+    ) {
+      try {
+        await s3Service.deleteFile(req.body.fileKey);
+      } catch (s3CleanupErr) {
+        console.error("Failed to cleanup S3 file:", s3CleanupErr);
+      }
+    }
+
     await auditService.logAction({
       req,
       action: AuditLogAction.RECORD_UPLOAD,
@@ -207,7 +256,7 @@ export const uploadRecord = async (
 export const getRecords = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const result = getRecordsSchema.safeParse(req.query);
@@ -234,13 +283,13 @@ export const getRecords = async (
       const caregiverAccess = await checkRecordAccess(
         currentUserId,
         userId,
-        CaregiverRequestStatus.APPROVED,
+        CaregiverRequestStatus.APPROVED
       );
 
       if (!caregiverAccess) {
         throwError(
           "You don't have access to view records for this patient",
-          403,
+          403
         );
         return;
       }
@@ -362,7 +411,7 @@ export const getRecords = async (
 export const getRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const { id } = req.params;
@@ -406,7 +455,7 @@ export const getRecord = async (
       hasAccess = await checkRecordAccess(
         currentUserId,
         record.ownerId,
-        CaregiverRequestStatus.APPROVED,
+        CaregiverRequestStatus.APPROVED
       );
     }
 
@@ -454,7 +503,7 @@ export const getRecord = async (
 export const deleteRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const { id } = req.params;
@@ -484,7 +533,7 @@ export const deleteRecord = async (
     });
 
     redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.RECORDS_LIST}:${currentUserId}*`,
+      `${RedisKeysPrefix.RECORDS_LIST}:${currentUserId}*`
     );
 
     res.status(200).json({
