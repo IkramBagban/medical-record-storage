@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import { verifyToken } from "../utils/jwt";
 import { prisma } from "../utils/db";
 import { ExtendedRequest } from "../types/common";

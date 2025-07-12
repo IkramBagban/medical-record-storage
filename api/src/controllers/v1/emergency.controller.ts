@@ -1,8 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import {
-  uploadRecordSchema,
-  getRecordsSchema,
-} from "../../zodSchema/record.schema";
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
 import { ExtendedRequest } from "../../types/common";
@@ -11,7 +7,6 @@ import {
   AuditLogAction,
   AuditLogStatus,
   AuditLogTargetType,
-  UserRole,
 } from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { customAlphabet } from "nanoid";

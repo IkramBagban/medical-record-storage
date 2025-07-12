@@ -1,9 +1,7 @@
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
 import {
   uploadRecordSchema,
   getRecordsSchema,
-  ocrUploadSchema,
-  OcrFailureSchema,
 } from "../../zodSchema/record.schema";
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
@@ -18,17 +16,13 @@ import {
   AuditLogStatus,
   AuditLogTargetType,
   CaregiverRequestStatus,
-  OcrStatus,
   PlanLimitStatus,
-  Record,
   UserRole,
 } from "@prisma/client";
 import { auditService } from "../../services/audit";
 import { redisService } from "../../services/redis";
 import { checkRecordAccess } from "../../utils/record";
-import { v4 as uuidv4 } from "uuid";
 import { allowedMimeTypes } from "../../utils/constants";
-import z from "zod";
 
 const CACHE_KEYS = {
   RECORD: (id: string) => `record:${id}`,
