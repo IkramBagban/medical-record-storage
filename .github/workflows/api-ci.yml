@@ -27,7 +27,7 @@ jobs:
       CLOUDFRONT_DISTRIBUTION_URL: ${{ secrets.CLOUDFRONT_DISTRIBUTION_URL }}
       RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-      NODE_ENV: ${{ secrets.NODE_ENV }}
+      NODE_ENV: test
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
@@ -48,8 +48,8 @@ jobs:
         with:
           version: 9.12.1
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install all dependencies even with NODE_ENV=test
+        run: pnpm install --frozen-lockfile --install-strategy=shamefully-hoist
       
       - name: Check Formatting
         run: pnpm run format:check

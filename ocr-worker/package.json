@@ -2,7 +2,7 @@
   "name": "ocr-worker",
   "scripts": {
     "db:generate": "prisma generate",
-    "predeploy": "prisma generate && cp -r src/generated/client node_modules/.prisma/client",
+    "predeploy": "prisma generate && mkdir -p node_modules/.prisma/client && cp -r src/generated/client/* node_modules/.prisma/client/",
     "deploy": "serverless deploy",
     "postinstall": "prisma generate"
   },

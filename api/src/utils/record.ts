@@ -6,7 +6,7 @@ import { throwError } from "./error";
 export const checkRecordAccess = async (
   caregiverId: string,
   patientId: string,
-  status: CaregiverRequestStatus
+  status: CaregiverRequestStatus,
 ) => {
   const caregiverAccess = await prisma.caregiverRequest.findFirst({
     where: {
@@ -22,7 +22,7 @@ export const validateFileConstraints = (fileSize: number, mimeType: string) => {
   if (!allowedMimeTypes.includes(mimeType)) {
     throwError(
       "Invalid file type. Only images, PDFs, and text files are allowed",
-      400
+      400,
     );
   }
 
@@ -34,7 +34,7 @@ export const validateFileConstraints = (fileSize: number, mimeType: string) => {
 export const getActualOwnerId = async (
   uploaderId: string,
   ownerId: string | undefined,
-  userRole: string
+  userRole: string,
 ) => {
   let actualOwnerId = uploaderId;
 
@@ -51,7 +51,7 @@ export const getActualOwnerId = async (
     if (!caregiverAccess) {
       throwError(
         "You don't have access to upload records for this patient",
-        403
+        403,
       );
     }
 

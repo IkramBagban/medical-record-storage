@@ -26,7 +26,6 @@ import {
   getActualOwnerId,
   validateFileConstraints,
 } from "../../utils/record";
-import { allowedMimeTypes } from "../../utils/constants";
 
 const CACHE_KEYS = {
   RECORD: (id: string) => `record:${id}`,
@@ -39,7 +38,7 @@ const CACHE_KEYS = {
 export const getUploadUrl = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = uploadRecordSchema.safeParse(req.body);
@@ -56,7 +55,7 @@ export const getUploadUrl = async (
     const actualOwnerId = await getActualOwnerId(
       uploaderId,
       ownerId,
-      req.user!.role
+      req.user!.role,
     );
 
     const fileKey = s3Service.generateFileKey(actualOwnerId, fileName);
@@ -93,7 +92,7 @@ export const getUploadUrl = async (
 export const uploadRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   let recordCreated = false;
   let recordId: string | null = null;
@@ -131,7 +130,7 @@ export const uploadRecord = async (
     if (!fileExists && process.env.NODE_ENV !== "test") {
       throwError(
         "File upload verification failed. Please upload the file first.",
-        400
+        400,
       );
       return;
     }
@@ -150,7 +149,7 @@ export const uploadRecord = async (
       if (!caregiverAccess) {
         throwError(
           "You don't have access to upload records for this patient",
-          403
+          403,
         );
         return;
       }
@@ -198,7 +197,7 @@ export const uploadRecord = async (
       }),
 
       redisService.deleteKeysByPattern(
-        `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`
+        `${RedisKeysPrefix.RECORDS_LIST}:${actualOwnerId}*`,
       ),
     ]);
     res.status(201).json({
@@ -256,7 +255,7 @@ export const uploadRecord = async (
 export const getRecords = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const result = getRecordsSchema.safeParse(req.query);
@@ -283,13 +282,13 @@ export const getRecords = async (
       const caregiverAccess = await checkRecordAccess(
         currentUserId,
         userId,
-        CaregiverRequestStatus.APPROVED
+        CaregiverRequestStatus.APPROVED,
       );
 
       if (!caregiverAccess) {
         throwError(
           "You don't have access to view records for this patient",
-          403
+          403,
         );
         return;
       }
@@ -411,7 +410,7 @@ export const getRecords = async (
 export const getRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -455,7 +454,7 @@ export const getRecord = async (
       hasAccess = await checkRecordAccess(
         currentUserId,
         record.ownerId,
-        CaregiverRequestStatus.APPROVED
+        CaregiverRequestStatus.APPROVED,
       );
     }
 
@@ -503,7 +502,7 @@ export const getRecord = async (
 export const deleteRecord = async (
   req: ExtendedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -533,7 +532,7 @@ export const deleteRecord = async (
     });
 
     redisService.deleteKeysByPattern(
-      `${RedisKeysPrefix.RECORDS_LIST}:${currentUserId}*`
+      `${RedisKeysPrefix.RECORDS_LIST}:${currentUserId}*`,
     );
 
     res.status(200).json({

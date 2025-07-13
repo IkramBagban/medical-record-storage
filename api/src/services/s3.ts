@@ -72,7 +72,7 @@ class S3Service {
       return response.ContentLength || 0;
     } catch (error) {
       throw new Error(
-        `Failed to get file size: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Failed to get file size: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
   }
@@ -86,7 +86,7 @@ class S3Service {
       await this.s3Client.send(command);
     } catch (error) {
       throw new Error(
-        `Failed to delete file: ${error instanceof Error ? error.message : "Unknown error"}`
+        `Failed to delete file: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
   }
