@@ -45,17 +45,6 @@ model User {
   PlanLimit                 PlanLimit[]
 }
 
-model OtpVerification {
-  id        String   @id @default(cuid())
-  email     String
-  otp       String
-  expiresAt DateTime
-  verified  Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@unique([email, otp])
-  @@index([email])
-}
 
 enum Ownership {
   SELF

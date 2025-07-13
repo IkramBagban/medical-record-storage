@@ -1,8 +1,5 @@
-import { Request, Response, NextFunction } from "express";
-import {
-  ocrUploadSchema,
-  OcrFailureSchema,
-} from "../../zodSchema/record.schema";
+import { Response, NextFunction } from "express";
+import { ocrUploadSchema } from "../../zodSchema/record.schema";
 import { prisma } from "../../utils/db";
 import { throwError } from "../../utils/error";
 import { ExtendedRequest } from "../../types/common";
@@ -45,12 +42,10 @@ export const getOcrResults = async (
 
     res.status(200).json({
       message: "OCR results retrieved successfully",
-      data: {
-        ...ocrResults.map((result) => ({
-          ...result,
-          downloadUrl: s3Service.getDownloadUrl(result.fileKey),
-        })),
-      },
+      data: ocrResults.map((result) => ({
+        ...result,
+        downloadUrl: s3Service.getDownloadUrl(result.fileKey),
+      })),
       success: true,
     });
   } catch (err) {
@@ -133,36 +128,5 @@ export const ocrUpload = async (
       targetType: AuditLogTargetType.RECORD,
     });
     next(err);
-  }
-};
-
-export const ocrFailure = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    console.log("Received OCR failure request:", req.query);
-    const result = OcrFailureSchema.safeParse(req.query);
-
-    if (!result.success) {
-      throwError(JSON.stringify(result.error.flatten()), 400);
-    }
-
-    const { fileKey } = req.query as { fileKey: string };
-    await prisma.oCRResult.update({
-      where: {
-        fileKey: decodeURIComponent(fileKey),
-      },
-      data: {
-        status: OcrStatus.FAILED,
-      },
-    });
-
-    res
-      .status(200)
-      .json({ message: `OCR failed for ${decodeURIComponent(fileKey)}` });
-  } catch (error) {
-    next(error);
   }
 };

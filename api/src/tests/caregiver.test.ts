@@ -23,9 +23,7 @@ describe("Caregiver API", () => {
   let caregiverRequestId: string;
 
   beforeAll(async () => {
-    await prisma.caregiverRequest.deleteMany();
-    await prisma.record.deleteMany();
-    await prisma.user.deleteMany();
+    await cleanupAllTables();
 
     const [_patient, _caregiver, _dependent, _anotherCaregiver] =
       await prisma.$transaction([
@@ -157,13 +155,13 @@ describe("Caregiver API", () => {
       email: _anotherCaregiver.email,
       role: _anotherCaregiver.role,
     });
-  }, 30000);
+  }, 300000);
 
   afterAll(async () => {
     await cleanupAllTables();
     await prisma.$disconnect();
     await server.close();
-  });
+  }, 300000);
 
   describe("POST /caregiver/request", () => {
     describe("should create a caregiver request", () => {

@@ -47,7 +47,6 @@ jobs:
         run: |
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}" >> .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
-          echo "API_URL=${{ secrets.API_URL }}" >> .env
 
       - name: Deploy with Serverless using access key
         env:

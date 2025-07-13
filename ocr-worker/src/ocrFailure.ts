@@ -5,7 +5,6 @@ export const ocrFailureHandler = async (event: any) => {
   const record = event.Records[0];
 
   let key: string | undefined;
-  console.log("process.env.API_URL:", process.env.API_URL);
 
   try {
     const s3Info = JSON.parse(record.body);

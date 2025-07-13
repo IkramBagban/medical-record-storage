@@ -1,7 +1,4 @@
-import app from "../..";
 import { prisma } from "../../utils/db";
-import { createOtpVerification, createUser } from "./auth";
-import request from "supertest";
 
 export const testEmail = "ikrambagban.dev@gmail.com";
 export const testOtp = "123456";
@@ -32,7 +29,6 @@ export const cleanupAllTables = async () => {
   await prisma.$transaction([
     prisma.caregiverRequest.deleteMany(),
     prisma.record.deleteMany(),
-    prisma.otpVerification.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.oCRResult.deleteMany(),
     prisma.planLimit.deleteMany(),
@@ -40,16 +36,6 @@ export const cleanupAllTables = async () => {
     prisma.emergencySnapshot.deleteMany(),
     prisma.user.deleteMany(),
   ]);
-};
-
-export const createUserAndVerify = async () => {
-  await createUser({});
-  const res = await createOtpVerification({});
-  console.log("OTP verification created:", res);
-  return await request(app).post("/api/v1/auth/login/verify").send({
-    email: testEmail,
-    otp: testOtp,
-  });
 };
 
 export const multilingualTestData = [

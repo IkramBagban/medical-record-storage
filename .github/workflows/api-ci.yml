@@ -29,7 +29,7 @@ jobs:
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       NODE_ENV: test
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
       SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
       SENDGRID_FROM_EMAIL: ${{ secrets.SENDGRID_FROM_EMAIL }}
       REDIS_URL: ${{ secrets.REDIS_URL }}
@@ -49,7 +49,7 @@ jobs:
           version: 9.12.1
 
       - name: Install all dependencies even with NODE_ENV=test
-        run: pnpm install --frozen-lockfile --install-strategy=shamefully-hoist
+        run: pnpm install --frozen-lockfile --prod false
       
       - name: Check Formatting
         run: pnpm run format:check

@@ -80,7 +80,6 @@ describe("Records API", () => {
       }),
     ]);
 
-
     patientId = patient.id;
     caregiverId = caregiver.id;
 
