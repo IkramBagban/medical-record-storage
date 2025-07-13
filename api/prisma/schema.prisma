@@ -45,7 +45,6 @@ model User {
   PlanLimit                 PlanLimit[]
 }
 
-
 enum Ownership {
   SELF
   DEPENDENT
@@ -79,8 +78,9 @@ model Record {
   ownerId String
   owner   User   @relation("RecordOwner", fields: [ownerId], references: [id])
 
-  uploaderId String
-  uploader   User   @relation("RecordUploader", fields: [uploaderId], references: [id])
+  uploaderId              String
+  uploader                User                      @relation("RecordUploader", fields: [uploaderId], references: [id])
+  EmergencySnapshotRecord EmergencySnapshotRecord[]
 
   @@index([ownerId])
   @@index([uploaderId])
@@ -164,12 +164,23 @@ model EmergencySnapshot {
   userId      String
   title       String
   description String?
-  recordIds   String[]
   createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user    User                      @relation(fields: [userId], references: [id])
+  records EmergencySnapshotRecord[]
 
   @@index([qrToken])
+}
+
+model EmergencySnapshotRecord {
+  id         String @id @default(cuid())
+  snapshotId String
+  recordId   String
+
+  snapshot EmergencySnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  record   Record            @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, recordId])
 }
 
 enum OcrStatus {

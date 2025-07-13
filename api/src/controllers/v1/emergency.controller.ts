@@ -22,25 +22,22 @@ export const getEmergencyData = async (
 
     const snapshot = await prisma.emergencySnapshot.findUnique({
       where: { qrToken },
+      include: {
+        records: {
+          include: {
+            record: true,
+          },
+        },
+      },
     });
 
     if (!snapshot) {
       return throwError("Invalid QR token", 404);
     }
 
-    const records = await prisma.record.findMany({
-      where: {
-        id: { in: snapshot.recordIds },
-        isDeleted: false,
-      },
-      select: {
-        title: true,
-        type: true,
-        language: true,
-        recordDate: true,
-        fileKey: true,
-      },
-    });
+    const records = snapshot.records
+      .filter((r) => r.record && !r.record.isDeleted)
+      .map((r) => r.record);
 
     await auditService.logAction({
       req,
@@ -49,6 +46,7 @@ export const getEmergencyData = async (
       description: `Emergency snapshot accessed`,
       targetType: AuditLogTargetType.EMERGENCY,
     });
+
     res.status(200).json({
       message: "Emergency snapshot retrieved",
       emergencyData: {
@@ -117,8 +115,14 @@ export const generateEmergencySnapshot = async (
         userId,
         title,
         description,
-        recordIds,
         qrToken,
+        records: {
+          createMany: {
+            data: recordIds.map((recordId) => ({
+              recordId,
+            })),
+          },
+        },
       },
     });
 
