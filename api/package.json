@@ -7,7 +7,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "jest --runInBand",
+    "test": "jest --runInBand --detectOpenHandles --forceExit",
     "test:records": "cross-env NODE_ENV=test jest src/tests/records.test.ts",
     "test:auth": "cross-env NODE_ENV=test jest src/tests/auth.test.ts",
     "test:caregiver": "cross-env NODE_ENV=test jest src/tests/caregiver.test.ts",
