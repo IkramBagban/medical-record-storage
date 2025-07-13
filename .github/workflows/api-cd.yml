@@ -3,7 +3,7 @@ name: Backend-Deployment
 on:
   push: 
     branches: 
-      - prod
+      - main
     paths: 
       - 'api/**'
       - '.github/workflows/api-cd.yml'
