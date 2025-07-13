@@ -1,6 +1,6 @@
 import { prisma } from "../utils/db";
-import { OcrStatus } from "@prisma/client";
 import { processOcr } from "../utils/processOcr";
+import { OcrStatus } from "./generated/client";
 
 export const ocrProcessor = async (event: any) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
@@ -18,7 +18,7 @@ export const ocrProcessor = async (event: any) => {
   const s3Record = s3Info.Records?.[0]?.s3;
   if (!s3Record) {
     console.error("No S3 record found in message.");
-    throw new Error("Invalid S3 event format.");
+    return;
   }
 
   const key = decodeURIComponent(s3Record.object.key);

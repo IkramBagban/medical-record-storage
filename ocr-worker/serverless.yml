@@ -2,43 +2,66 @@ org: ikrambagban
 app: worker
 service: ocr-worker
 
+useDotenv: true
+
 plugins:
   - serverless-dotenv-plugin
   - serverless-plugin-existing-s3
+  - serverless-esbuild
+
+frameworkVersion: '^3.40.0'
 
 package:
   individually: true
-
-frameworkVersion: '~4.17.1'
-
+  patterns:
+    - '!node_modules/.bin/**'
+    - '!node_modules/prisma/**'
+    - '!node_modules/@prisma/engines/**'
+    - '!**/*.ts'
+    - '!**/*.map'
+    - 'node_modules/.prisma/**'
+    - 'node_modules/@prisma/client/**'
+    - 'dist/**'
+    - 'prisma/schema.prisma'
+    - 'src/generated/client/**'
+    - '!src/generated/client/libquery_engine-*' # Exclude all binaries
+    - 'src/generated/client/libquery_engine-rhel-openssl-3.0.x.so.node'
+    - 'src/generated/client/libquery_engine-rhel-openssl-1.0.x.so.node'
+    - 'src/generated/client/libquery_engine-linux-arm64-openssl-3.0.x.so.node'  
+    
 provider:
   name: aws
-  runtime: nodejs22.x
+  runtime: nodejs18.x
+  memorySize: 1024
   region: us-east-1
   environment:
     S3_BUCKET_NAME: ${env:S3_BUCKET_NAME}
     DATABASE_URL: ${env:DATABASE_URL}
     API_URL: ${env:API_URL}
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - s3:GetObject
-        - s3:GetBucketNotification
-        - s3:PutBucketNotification
-        - sqs:ReceiveMessage
-        - sqs:DeleteMessage
-        - sqs:GetQueueAttributes
-        - sqs:SendMessage
-      Resource:
-        - Fn::Join:
-            - ""
-            - - "arn:aws:s3:::${env:S3_BUCKET_NAME}"
-        - Fn::GetAtt: [ OcrQueue, Arn ]
-        - Fn::GetAtt: [ OcrDLQ, Arn ]
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:GetBucketNotification
+            - s3:PutBucketNotification
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:GetQueueAttributes
+            - sqs:SendMessage
+          Resource:
+            - Fn::Join:
+                - ""
+                - - "arn:aws:s3:::${env:S3_BUCKET_NAME}"
+            - Fn::GetAtt: [ OcrQueue, Arn ]
+            - Fn::GetAtt: [ OcrDLQ, Arn ]
 
 functions:
   ocrProcessor:
-    handler: src/handler.ocrProcessor
+    handler: src/processOcr.ocrProcessor
+    timeout: 900 
+    memorySize: 1024 
     events:
       - sqs:
           arn:
@@ -54,6 +77,18 @@ functions:
           batchSize: 1
 
 custom:
+  esbuild:
+    bundle: true
+    minify: true
+    sourcemap: false
+    exclude: ["aws-sdk"]
+    external: ["@prisma/client"]
+    target: "node18"
+    platform: "node"
+    concurrency: 10
+  prisma:
+    generate: true
+    schema: ./prisma/schema.prisma
   existingS3:
     force: true
     bucketConfigurations:
@@ -70,6 +105,7 @@ resources:
       Type: AWS::SQS::Queue
       Properties:
         QueueName: ocr-jobs-queue
+        VisibilityTimeout: 120
         RedrivePolicy:
           deadLetterTargetArn:
             Fn::GetAtt: [ OcrDLQ, Arn ]

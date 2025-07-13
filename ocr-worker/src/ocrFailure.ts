@@ -1,8 +1,11 @@
+import { prisma } from "../utils/db";
+import { OcrStatus } from "./generated/client";
 
 export const ocrFailureHandler = async (event: any) => {
   const record = event.Records[0];
 
   let key: string | undefined;
+  console.log("process.env.API_URL:", process.env.API_URL);
 
   try {
     const s3Info = JSON.parse(record.body);
@@ -15,14 +18,17 @@ export const ocrFailureHandler = async (event: any) => {
   }
 
   try {
-    const response = await fetch(
-      `${process.env.API_URL}/v1/ocr/failure?fileKey=${encodeURIComponent(key)}`,
-      {
-        method: "PATCH",
-      }
-    );
-    const data = await response.json();
-    console.info("DLQ handler success:", data);
+    console.log("Received DLQ event for key:", key);
+
+    await prisma.oCRResult.update({
+      where: {
+        fileKey: decodeURIComponent(key),
+      },
+      data: {
+        status: OcrStatus.FAILED,
+      },
+    });
+    console.log("OCR status updated to FAILED for key:", key);
   } catch (err) {
     console.error("DLQ fetch to backend failed:", err);
   }

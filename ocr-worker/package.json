@@ -1,20 +1,23 @@
 {
   "name": "ocr-worker",
   "scripts": {
-    "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "predeploy": "prisma generate && cp -r src/generated/client node_modules/.prisma/client",
+    "deploy": "serverless deploy",
+    "postinstall": "prisma generate"
   },
   "devDependencies": {
     "@types/node": "^24.0.12",
     "prisma": "^6.11.1",
-    "serverless": "^4.17.1",
-    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless": "^3.40.0",
+    "serverless-dotenv-plugin": "^4.0.2",
     "serverless-esbuild": "^1.55.1",
     "serverless-plugin-existing-s3": "^2.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@prisma/client": "^6.11.1"
+    "@prisma/client": "^6.11.1",
+    "serverless-prisma": "^0.0.1"
   }
 }
