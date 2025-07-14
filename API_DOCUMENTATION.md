@@ -2,7 +2,6 @@
 
 > Base URL: `http://localhost:3000/api/v1`
 > Replace `{{API_URL}}` with `http://localhost:3000/api/v1` in all endpoints.
-> 📥 **Download Postman Collection:** [Click here to download](https://drive.google.com/file/d/1X5KytJn5m9_pIIigZCTkQ4fSzRRdg1EO/view?usp=sharing)
 
 ---
 
